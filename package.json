@@ -1,0 +1,29 @@
+{
+  "name": "hezifidelis",
+  "version": "1.0.0",
+  "description": "eu sou o Fidelis, e sou da hezi >.&lt;",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fideliswarrior-art/hezifidelis.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/fideliswarrior-art/hezifidelis/issues"
+  },
+  "homepage": "https://github.com/fideliswarrior-art/hezifidelis#readme",
+  "devDependencies": {
+    "@types/node": "^25.5.2",
+    "prisma": "^7.6.0",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.2"
+  },
+  "dependencies": {
+    "@prisma/client": "^7.6.0"
+  }
+}
