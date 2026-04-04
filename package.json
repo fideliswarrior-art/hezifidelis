@@ -1,10 +1,14 @@
 {
   "name": "hezifidelis",
   "version": "1.0.0",
+  "type": "module",
   "description": "eu sou o Fidelis, e sou da hezi >.&lt;",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
   },
   "repository": {
     "type": "git",
@@ -19,11 +23,23 @@
   "homepage": "https://github.com/fideliswarrior-art/hezifidelis#readme",
   "devDependencies": {
     "@types/node": "^25.5.2",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "eslint": "^9.39.4",
+    "eslint-config-next": "^16.2.2",
     "prisma": "^7.6.0",
     "tsx": "^4.21.0",
     "typescript": "^6.0.2"
   },
   "dependencies": {
-    "@prisma/client": "^7.6.0"
+    "@prisma/client": "^7.6.0",
+    "@upstash/ratelimit": "^2.0.8",
+    "@upstash/redis": "^1.37.0",
+    "argon2": "^0.44.0",
+    "jose": "^6.2.2",
+    "next": "^16.2.2",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "zod": "^4.3.6"
   }
 }
