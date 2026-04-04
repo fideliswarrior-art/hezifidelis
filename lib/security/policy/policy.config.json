@@ -1,0 +1,492 @@
+{
+    "version": "1.0.0",
+    "project": "HEZI_TECH",
+    "rolesHierarchy": [
+        "USER",
+        "EDITOR",
+        "MODERATOR",
+        "SCOREKEEPER",
+        "REFEREE",
+        "ADMIN",
+        "SUPER_ADMIN"
+    ],
+    "globalRules": {
+        "denyByDefault": true,
+        "mustBeAuthenticatedForPrivateRoutes": true,
+        "mustBeActiveUser": true,
+        "mustValidateTokenVersionAndBlacklist": true,
+        "superAdminBypassRequiresAudit": true,
+        "superAdminBypassRequiresReason": true
+    },
+    "profiles": {
+        "CP01_IDENTIDADE": {
+            "resources": [
+                "User",
+                "Notification"
+            ],
+            "actions": {
+                "read": {
+                    "allow": [
+                        "USER",
+                        "EDITOR",
+                        "MODERATOR",
+                        "SCOREKEEPER",
+                        "REFEREE",
+                        "ADMIN",
+                        "SUPER_ADMIN"
+                    ],
+                    "where": [
+                        "isOwner(userId)"
+                    ]
+                },
+                "update": {
+                    "allow": [
+                        "USER",
+                        "EDITOR",
+                        "MODERATOR",
+                        "SCOREKEEPER",
+                        "REFEREE",
+                        "ADMIN",
+                        "SUPER_ADMIN"
+                    ],
+                    "where": [
+                        "isOwner(userId)",
+                        "fieldWhitelist(['name','avatarUrl','bio'])"
+                    ]
+                },
+                "manage_roles": {
+                    "allow": [
+                        "ADMIN",
+                        "SUPER_ADMIN"
+                    ]
+                },
+                "deactivate": {
+                    "allow": [
+                        "ADMIN",
+                        "SUPER_ADMIN"
+                    ]
+                }
+            }
+        },
+        "CP02_ESTRUTURA_LIGA": {
+            "resources": [
+                "Season",
+                "Split",
+                "Phase",
+                "Group",
+                "PlayoffSeries"
+            ],
+            "actions": {
+                "read": {
+                    "allow": [
+                        "PUBLIC"
+                    ]
+                },
+                "create": {
+                    "allow": [
+                        "ADMIN",
+                        "SUPER_ADMIN"
+                    ]
+                },
+                "update": {
+                    "allow": [
+                        "ADMIN",
+                        "SUPER_ADMIN"
+                    ]
+                },
+                "delete": {
+                    "allow": [
+                        "SUPER_ADMIN"
+                    ]
+                },
+                "activate": {
+                    "allow": [
+                        "ADMIN",
+                        "SUPER_ADMIN"
+                    ],
+                    "requires": [
+                        "atomicDeactivateOthers",
+                        "auditLog"
+                    ]
+                }
+            }
+        },
+        "CP03_TIMES": {
+            "resources": [
+                "Team",
+                "TeamGroup",
+                "TeamSocialLink",
+                "DraftPick"
+            ],
+            "actions": {
+                "read": {
+                    "allow": [
+                        "PUBLIC"
+                    ]
+                },
+                "create": {
+                    "allow": [
+                        "ADMIN",
+                        "SUPER_ADMIN"
+                    ],
+                    "requires": [
+                        "auditLog"
+                    ]
+                },
+                "update": {
+                    "allow": [
+                        "ADMIN",
+                        "SUPER_ADMIN"
+                    ],
+                    "requires": [
+                        "auditLog"
+                    ]
+                },
+                "delete": {
+                    "allow": [
+                        "SUPER_ADMIN"
+                    ],
+                    "requires": [
+                        "auditLog"
+                    ]
+                }
+            }
+        },
+        "CP04_JOGADORES": {
+            "resources": [
+                "Player",
+                "PlayerContract",
+                "RosterSnapshot",
+                "PlayerSocialLink",
+                "FreeAgentProfile"
+            ],
+            "actions": {
+                "read": {
+                    "allow": [
+                        "PUBLIC"
+                    ]
+                },
+                "create": {
+                    "allow": [
+                        "ADMIN",
+                        "SUPER_ADMIN"
+                    ],
+                    "requires": [
+                        "auditLog"
+                    ]
+                },
+                "update": {
+                    "allow": [
+                        "ADMIN",
+                        "SUPER_ADMIN"
+                    ],
+                    "requires": [
+                        "auditLog"
+                    ]
+                },
+                "delete": {
+                    "allow": [
+                        "SUPER_ADMIN"
+                    ],
+                    "requires": [
+                        "auditLog"
+                    ]
+                },
+                "transfer": {
+                    "allow": [
+                        "ADMIN",
+                        "SUPER_ADMIN"
+                    ],
+                    "requires": [
+                        "atomicContractSwap",
+                        "auditLog"
+                    ]
+                }
+            }
+        },
+        "CP07_PARTIDAS": {
+            "resources": [
+                "Match",
+                "MatchPeriod",
+                "MatchMvp",
+                "MatchOfficial",
+                "MatchEvent"
+            ],
+            "actions": {
+                "read": {
+                    "allow": [
+                        "PUBLIC"
+                    ]
+                },
+                "create": {
+                    "allow": [
+                        "ADMIN",
+                        "SUPER_ADMIN"
+                    ]
+                },
+                "start": {
+                    "allow": [
+                        "ADMIN",
+                        "SUPER_ADMIN"
+                    ],
+                    "where": [
+                        "matchStatusIs(SCHEDULED)",
+                        "hasScorekeeperAssigned"
+                    ],
+                    "requires": [
+                        "auditLog(MATCH_START)"
+                    ]
+                },
+                "registerEvent": {
+                    "allow": [
+                        "SCOREKEEPER",
+                        "REFEREE",
+                        "ADMIN",
+                        "SUPER_ADMIN"
+                    ],
+                    "where": [
+                        "matchStatusIs(LIVE)",
+                        "isDesignatedOfficial OR roleAtLeast(ADMIN)"
+                    ],
+                    "requires": [
+                        "playerInMatch"
+                    ]
+                },
+                "voidEvent": {
+                    "allow": [
+                        "SCOREKEEPER",
+                        "REFEREE",
+                        "ADMIN",
+                        "SUPER_ADMIN"
+                    ],
+                    "where": [
+                        "isOwnEvent OR roleAtLeast(ADMIN)"
+                    ],
+                    "requires": [
+                        "voidReasonRequired",
+                        "auditLog(MATCH_EVENT_VOID)"
+                    ]
+                },
+                "finish": {
+                    "allow": [
+                        "ADMIN",
+                        "SUPER_ADMIN"
+                    ],
+                    "where": [
+                        "matchStatusIs(LIVE)"
+                    ],
+                    "requires": [
+                        "auditLog(MATCH_FINISH)",
+                        "recalculateStats"
+                    ]
+                },
+                "assignOfficial": {
+                    "allow": [
+                        "ADMIN",
+                        "SUPER_ADMIN"
+                    ],
+                    "where": [
+                        "matchStatusIs(SCHEDULED)"
+                    ]
+                },
+                "importInstagramMvp": {
+                    "allow": [
+                        "ADMIN",
+                        "SUPER_ADMIN"
+                    ],
+                    "where": [
+                        "matchStatusIs(FINISHED)",
+                        "matchIsNotOfficial",
+                        "noExistingMvp"
+                    ],
+                    "requires": [
+                        "auditLog(MVP_INSTAGRAM_IMPORT)"
+                    ]
+                }
+            }
+        },
+        "CP10_ACAO_SOCIAL": {
+            "resources": [
+                "Beneficiary",
+                "CharityCampaign",
+                "CampaignUpdate",
+                "Donation"
+            ],
+            "actions": {
+                "read": {
+                    "allow": [
+                        "PUBLIC"
+                    ]
+                },
+                "create": {
+                    "allow": [
+                        "ADMIN",
+                        "SUPER_ADMIN"
+                    ]
+                },
+                "update": {
+                    "allow": [
+                        "ADMIN",
+                        "SUPER_ADMIN"
+                    ]
+                },
+                "publishUpdate": {
+                    "allow": [
+                        "EDITOR",
+                        "ADMIN",
+                        "SUPER_ADMIN"
+                    ],
+                    "where": [
+                        "EDITOR: requiresAdminApproval"
+                    ]
+                },
+                "confirmDonation": {
+                    "allow": [
+                        "ADMIN",
+                        "SUPER_ADMIN"
+                    ],
+                    "where": [
+                        "donationStatusIs(RECEIVED)"
+                    ],
+                    "requires": [
+                        "auditLog(DONATION_CONFIRM)",
+                        "recalculateCampaignTotal"
+                    ]
+                }
+            }
+        },
+        "CP12_ECOMMERCE": {
+            "resources": [
+                "Product",
+                "ProductVariant",
+                "Coupon",
+                "Order",
+                "OrderItem",
+                "Payment"
+            ],
+            "actions": {
+                "read_public": {
+                    "allow": [
+                        "PUBLIC"
+                    ]
+                },
+                "read_own": {
+                    "allow": [
+                        "USER",
+                        "EDITOR",
+                        "MODERATOR",
+                        "SCOREKEEPER",
+                        "REFEREE",
+                        "ADMIN",
+                        "SUPER_ADMIN"
+                    ],
+                    "where": [
+                        "isOwner(userId)"
+                    ]
+                },
+                "checkout": {
+                    "allow": [
+                        "USER",
+                        "EDITOR",
+                        "MODERATOR",
+                        "SCOREKEEPER",
+                        "REFEREE",
+                        "ADMIN",
+                        "SUPER_ADMIN"
+                    ],
+                    "where": [
+                        "isActive",
+                        "emailVerified",
+                        "serverSideTotalAmount",
+                        "couponValidInTransaction"
+                    ],
+                    "requires": [
+                        "auditLog(ORDER_CREATE)"
+                    ]
+                },
+                "manage": {
+                    "allow": [
+                        "ADMIN",
+                        "SUPER_ADMIN"
+                    ],
+                    "requires": [
+                        "auditLog"
+                    ]
+                },
+                "refund": {
+                    "allow": [
+                        "ADMIN",
+                        "SUPER_ADMIN"
+                    ],
+                    "requires": [
+                        "auditLog(ORDER_REFUND)"
+                    ]
+                }
+            }
+        },
+        "CP13_INGRESSOS": {
+            "resources": [
+                "TicketBatch",
+                "Ticket"
+            ],
+            "actions": {
+                "read_own": {
+                    "allow": [
+                        "USER",
+                        "EDITOR",
+                        "MODERATOR",
+                        "SCOREKEEPER",
+                        "REFEREE",
+                        "ADMIN",
+                        "SUPER_ADMIN"
+                    ],
+                    "where": [
+                        "isOwner(userId)"
+                    ]
+                },
+                "validate_qr": {
+                    "allow": [
+                        "ADMIN",
+                        "SUPER_ADMIN"
+                    ],
+                    "requires": [
+                        "selectForUpdate",
+                        "isUsedCheck",
+                        "auditLog(TICKET_VALIDATE)"
+                    ]
+                },
+                "revert_used": {
+                    "allow": [
+                        "SUPER_ADMIN"
+                    ],
+                    "requires": [
+                        "auditLog(TICKET_REVERT)",
+                        "justificationRequired"
+                    ]
+                }
+            }
+        },
+        "CP15_AUDITORIA": {
+            "resources": [
+                "AuditLog"
+            ],
+            "actions": {
+                "read": {
+                    "allow": [
+                        "ADMIN",
+                        "SUPER_ADMIN"
+                    ]
+                },
+                "export": {
+                    "allow": [
+                        "SUPER_ADMIN"
+                    ],
+                    "requires": [
+                        "justificationRequired",
+                        "auditLog(AUDIT_EXPORT)"
+                    ]
+                }
+            }
+        }
+    }
+}
