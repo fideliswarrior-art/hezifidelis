@@ -1,5 +1,4 @@
 import { SignJWT, jwtVerify } from "jose";
-import { db } from "../../db"
 
 // Em produção, isso DEVE vir do seu .env
 // O TextEncoder é necessário porque a biblioteca 'jose' exige a chave como Uint8Array
@@ -60,28 +59,4 @@ export async function verifyRefreshToken(token: string) {
   } catch (error) {
     throw new Error("Refresh token inválido ou expirado");
   }
-}
-
-/**
- * Adiciona o ID único de um token (JTI) à lista de revogação.
- */
-export async function blacklistToken(jti: string, expiresAt: Date) {
-  // Usamos upsert para evitar erros caso o token tente ser revogado duas vezes
-  await db.blacklistedToken.upsert({
-    where: { jti },
-    update: {},
-    create: { jti, expiresAt },
-  });
-}
-
-/**
- * Verifica se um token foi revogado prematuramente.
- */
-export async function isTokenBlacklisted(jti: string): Promise<boolean> {
-  const token = await db.blacklistedToken.findUnique({
-    where: { jti },
-    select: { id: true } // Selecionamos apenas o ID para a query ficar super leve
-  });
-  
-  return token !== null;
 }

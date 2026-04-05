@@ -1,5 +1,5 @@
-import { db } from "../../db.js";
-import { getClientIp } from "../utils/get-ip.js";
+import { db } from "../../db";
+import { getClientIp } from "../utils/get-ip";
 
 export type AuditLogPayload = {
   userId: string;

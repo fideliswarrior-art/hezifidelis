@@ -11,6 +11,7 @@ import { createAuditLog } from "../security/audit/audit.service";
 import { AuditEvent } from "../security/audit/audit.events";
 import { generatePasswordResetToken } from "../security/auth/verification";
 import { sendPasswordResetEmail } from "../email/sender";
+import { verifyTwoFactorToken } from "../security/auth/two-factor";
 
 // ============================================================================
 // 1. AÇÃO DE CADASTRO (SIGN UP)
@@ -177,6 +178,7 @@ export const forgotPassword = async (dados: unknown) => {
 const ResetPasswordSchema = z.object({
   token: z.string().min(1, "O token é obrigatório."),
   password: strongPasswordSchema,
+  twoFactorCode: z.string().length(6, "O código 2FA deve ter 6 dígitos."), // NOVO: Exigência do 2FA
 });
 
 export const resetPassword = async (dados: unknown) => {
@@ -185,61 +187,48 @@ export const resetPassword = async (dados: unknown) => {
     rateLimitBucket: "auth", 
   }, async (parsedInput) => {
     
-    // 1. Busca o token no banco de dados
     const resetToken = await db.verificationToken.findUnique({
       where: { token: parsedInput.token },
     });
 
-    if (!resetToken) {
-      throw new Error("Token inválido ou não encontrado.");
+    if (!resetToken || resetToken.expires < new Date()) {
+      if (resetToken) await db.verificationToken.delete({ where: { id: resetToken.id } });
+      throw new Error("Link de recuperação inválido ou expirado. Solicite um novo.");
     }
 
-    // 2. Verifica se o prazo de 15 minutos já expirou
-    if (resetToken.expires < new Date()) {
-      await db.verificationToken.delete({ where: { id: resetToken.id } });
-      throw new Error("Este link de recuperação expirou. Solicite um novo reenvio.");
-    }
-
-    // 3. Busca o usuário
     const user = await db.user.findUnique({
       where: { email: resetToken.email },
     });
 
-    if (!user || !user.isActive) {
-      throw new Error("Usuário não encontrado ou conta desativada.");
+    if (!user || !user.isActive || !user.twoFactorSecret) {
+      throw new Error("Acesso negado. Conta inativa ou 2FA não configurado.");
     }
 
-    // 4. Hashea a nova senha
+    // NOVO: Barreira de Segurança do 2FA
+    const isValid2FA = verifyTwoFactorToken(user.twoFactorSecret, parsedInput.twoFactorCode);
+    if (!isValid2FA) {
+      throw new Error("Código de autenticação 2FA incorreto ou expirado.");
+    }
+
     const hashedPassword = await hashPassword(parsedInput.password);
 
-    // 5. Atualiza o banco, limpa o token e gera a trilha de auditoria em uma Transaction
     await db.$transaction(async (tx) => {
-      // Atualiza a senha
       await tx.user.update({
         where: { id: user.id },
-        data: { password: hashedPassword },
+        // Incrementamos o tokenVersion para derrubar o usuário de todos os outros PCs instantaneamente
+        data: { password: hashedPassword, tokenVersion: user.tokenVersion + 1 }, 
       });
 
-      // Queima o token
-      await tx.verificationToken.delete({
-        where: { id: resetToken.id },
-      });
+      await tx.verificationToken.delete({ where: { id: resetToken.id } });
 
-      // Loga na Camada C12 da Matriz
       await tx.auditLog.create({
         data: {
-          userId: user.id,
-          action: AuditEvent.AUTH_RESET_PASSWORD,
-          entity: "User",
-          entityId: user.id,
-          metadata: { reason: "Recuperação de senha via e-mail." }
+          userId: user.id, action: AuditEvent.AUTH_RESET_PASSWORD, entity: "User", entityId: user.id,
+          metadata: { reason: "Recuperação de senha blindada com 2FA." }
         }
       });
     });
 
-    return {
-      success: true,
-      message: "Senha redefinida com sucesso! Você já pode fazer login com sua nova credencial.",
-    };
+    return { success: true, message: "Senha redefinida com sucesso!" };
   }, dados);
 };
