@@ -414,6 +414,12 @@ enum PaymentStatus {
   REFUNDED // Estornado ao cliente
 }
 
+enum TokenType {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+  TWO_FACTOR_CONFIRMATION
+}
+
 // =============================================================================
 // SEÇÃO 2: USUÁRIOS E CONTROLE DE ACESSO (RBAC)
 // =============================================================================
@@ -433,6 +439,13 @@ model User {
   isActive      Boolean  @default(true)
   emailVerified Boolean  @default(false)
   lastLoginAt   DateTime?
+
+  // Campos para Autenticação em 2 Fatores
+  isTwoFactorEnabled Boolean  @default(false)
+  twoFactorSecret    String?  // Armazena a chave base32 do app autenticador
+
+  // Mecanismo de Invalidação de Sessões (Camada C2)
+  tokenVersion  Int      @default(0)
 
   // --- Relações ---
   orders            Order[]
@@ -454,6 +467,33 @@ model User {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// Armazena tokens temporários de forma isolada e segura
+model VerificationToken {
+  id        String    @id @default(uuid())
+  email     String
+  token     String    @unique
+  type      TokenType
+  expires   DateTime
+  createdAt DateTime  @default(now())
+
+  // Garante que não fiquem múltiplos tokens do mesmo tipo pendentes para o mesmo e-mail
+  @@unique([email, type])
+}
+
+// =============================================================================
+// MECANISMO DE REVOGAÇÃO DE TOKENS (BLACKLIST DA CAMADA C2)
+// =============================================================================
+
+model BlacklistedToken {
+  id        String   @id @default(uuid())
+  jti       String   @unique
+  expiresAt DateTime // Permite limpar o banco de tokens que já venceram
+  createdAt DateTime @default(now())
+
+  // O índice em expiresAt acelera muito as queries de limpeza via Cron Job
+  @@index([expiresAt])
 }
 
 // =============================================================================
