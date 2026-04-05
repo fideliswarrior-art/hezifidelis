@@ -1,10 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { db } from "../../../../lib/db.js";
-import { safeRoute } from "../../../../lib/security/wrappers/safe-route.js";
-import { getRefreshTokenFromCookie, createSession, clearSession } from "../../../../lib/security/auth/session.js";
-import { verifyRefreshToken, isTokenBlacklisted } from "../../../../lib/security/auth/token.js";
-import { createAuditLog } from "../../../../lib/security/audit/audit.service.js";
-import { AuditEvent } from "../../../../lib/security/audit/audit.events.js";
+import { db } from "../../../../lib/db";
+import { safeRoute } from "../../../../lib/security/wrappers/safe-route";
+import { getRefreshTokenFromCookie, createSession, clearSession } from "../../../../lib/security/auth/session";
+import { verifyRefreshToken } from "../../../../lib/security/auth/token";
+import { isTokenBlacklisted } from "../../../../lib/security/auth/blacklist";
+import { createAuditLog } from "../../../../lib/security/audit/audit.service";
+import { AuditEvent } from "../../../../lib/security/audit/audit.events";
 
 const refreshHandler = async (req: NextRequest) => {
   const refreshToken = await getRefreshTokenFromCookie();

@@ -5,21 +5,27 @@ import { verifyAccessToken } from "./lib/security/auth/token";
 // Mapeamento de exceções explícitas (Rotas Públicas)
 const publicPages = [
   "/",
-  "/auth/login",
-  "/auth/reset-password",
+  "/login",
+  "/register",
+  "/forgot-password",
+  "/reset-password",
+  "/verify-email",    
+  "/auth/verify-email", 
   "/jogadores",
   "/times",
-  "/partidas"
+  "/partidas",
+  "/social" // Adicionado para a página de Ação Social do menu
 ];
 
 const publicApiRoutes = [
   "/api/auth/login",
-  "/api/auth/refresh",
-  "/api/auth/reset-password",
+  "/api/auth/2fa",        // A validação do 2FA cria a sessão, logo precisa ser pública
+  "/api/auth/register",   // Permite a criação de novas contas
+  "/api/auth/refresh",    // O refresh precisa ser público para renovar sessões expiradas
   "/api/webhooks/payment" // Webhook tem validação HMAC própria na rota
 ];
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   const isPublicPage = publicPages.some(route => pathname === route || pathname.startsWith(`${route}/`));
@@ -73,7 +79,9 @@ function handleUnauthorized(request: NextRequest) {
     );
   }
   
-  const loginUrl = new URL("/auth/login", request.url);
+  // Atualizado para a nova rota de login sem o /auth
+  const loginUrl = new URL("/login", request.url);
+  
   // Opcional: Salvar a URL de origem para redirecionar o usuário após o login
   loginUrl.searchParams.set("callbackUrl", pathname);
   

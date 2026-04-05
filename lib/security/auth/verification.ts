@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import { db } from "../../db.js";
+import { db } from "../../db";
 
 // Prazos rigorosos da sua Matriz de Defesa 
 const RESET_PASSWORD_TTL = 15 * 60 * 1000; // 15 minutos

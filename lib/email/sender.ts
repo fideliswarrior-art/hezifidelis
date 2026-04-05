@@ -20,7 +20,7 @@ const EMAIL_FROM = process.env.EMAIL_FROM || '"Hezi Tech" <noreply@hezifidelis.c
  * Envia o link de confirmação de e-mail logo após o cadastro.
  */
 export async function sendVerificationEmail(email: string, token: string) {
-  const confirmLink = `${APP_URL}/auth/verify-email?token=${token}`;
+  const confirmLink = `${APP_URL}/verify-email?token=${token}`;
 
   await transporter.sendMail({
     from: EMAIL_FROM,
