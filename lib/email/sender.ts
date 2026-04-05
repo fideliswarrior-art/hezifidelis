@@ -65,3 +65,33 @@ export async function sendPasswordResetEmail(email: string, token: string) {
     `,
   });
 }
+
+/**
+ * Envia um e-mail de aviso quando alguém tenta cadastrar um e-mail que já existe no banco.
+ * Fundamental para prevenir Enumeração de Usuários sem destruir a experiência do usuário legítimo.
+ */
+export async function sendAccountExistsEmail(email: string) {
+  const loginLink = `${APP_URL}/auth/login`;
+  const resetLink = `${APP_URL}/auth/forgot-password`;
+
+  await transporter.sendMail({
+    from: EMAIL_FROM,
+    to: email,
+    subject: "Aviso de Segurança - Conta já existente na Hezi Fidelis",
+    html: `
+      <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
+        <h2>Aviso de Segurança</h2>
+        <p>Recebemos uma solicitação para criar uma nova conta com este endereço de e-mail na plataforma Hezi Fidelis.</p>
+        <p><strong>Porém, este e-mail já está cadastrado em nosso sistema.</strong></p>
+        <p>Se foi você, não é necessário criar uma conta nova. Você pode simplesmente fazer o login:</p>
+        <p>
+          <a href="${loginLink}" style="background-color: #000; color: #fff; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 10px;">
+            Fazer Login
+          </a>
+        </p>
+        <p style="margin-top: 20px;">Esqueceu sua senha? <a href="${resetLink}">Clique aqui para recuperar</a>.</p>
+        <p style="font-size: 12px; color: #666; margin-top: 30px;">Se você não solicitou este cadastro, pode ignorar este e-mail tranquilamente. Sua conta está segura.</p>
+      </div>
+    `,
+  });
+}
