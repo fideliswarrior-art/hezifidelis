@@ -1,5 +1,5 @@
-import { requireAuth } from "../guards/require-auth";
-import { ForbiddenError } from "../guards/require-role";
+import { requireAuth } from "@/lib/security/guards/require-auth";
+import { ForbiddenError } from "@/lib/security/guards/require-role";
 
 /**
  * Garante que o usuário logado é o dono do recurso que está tentando acessar,

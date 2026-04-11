@@ -1,13 +1,13 @@
 import { z } from "zod";
 import { type Role } from "@prisma/client";
-import { verifyCsrfOrigin, CsrfError } from "../utils/csrf";
-import { validatePayload, ValidationError } from "../utils/validate";
-import { requireAuth, UnauthorizedError } from "../guards/require-auth";
-import { requireRole, ForbiddenError } from "../guards/require-role";
-import { applyRateLimit, RateLimitError } from "../ratelimit/limiter";
-import { getClientIp } from "../utils/get-ip";
-import type { RateLimitBucket } from "../ratelimit/buckets";
-import type { TokenPayload } from "../auth/token";
+import { verifyCsrfOrigin, CsrfError } from "@/lib/security/utils/csrf";
+import { validatePayload, ValidationError } from "@/lib/security/utils/validate";
+import { requireAuth, UnauthorizedError } from "@/lib/security/guards/require-auth";
+import { requireRole, ForbiddenError } from "@/lib/security/guards/require-role";
+import { applyRateLimit, RateLimitError } from "@/lib/security/ratelimit/limiter";
+import { getClientIp } from "@/lib/security/utils/get-ip";
+import type { RateLimitBucket } from "@/lib/security/ratelimit/buckets";
+import type { TokenPayload } from "@/lib/security/auth/token";
 
 type ActionConfig<T> = {
   schema?: z.Schema<T>;

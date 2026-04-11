@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { secureFetch } from "../../../lib/utils/secure-fetch";
+import { secureFetch } from "@/lib/utils/secure-fetch";
 
 export default function LoginPage() {
   const router = useRouter();

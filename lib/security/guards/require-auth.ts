@@ -1,6 +1,6 @@
-import { getSession, clearSession } from "../auth/session";
-import type { TokenPayload } from "../auth/token";
-import { db } from "../../db";
+import { getSession, clearSession } from "@/lib/security/auth/session";
+import type { TokenPayload } from "@/lib/security/auth/token";
+import { db } from "@/lib/db";
 
 export class UnauthorizedError extends Error {
   constructor(message = "Não autorizado. Faça login para continuar.") {

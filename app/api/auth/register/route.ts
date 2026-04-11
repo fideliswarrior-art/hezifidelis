@@ -1,11 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
-import { db } from "../../../../lib/db";
-import { safeRoute } from "../../../../lib/security/wrappers/safe-route";
-import { hashPassword } from "../../../../lib/security/auth/password";
-import { generateEmailVerificationToken } from "../../../../lib/security/auth/verification";
-import { sendVerificationEmail, sendAccountExistsEmail } from "../../../../lib/email/sender";
-import { emailSchema, strongPasswordSchema } from "../../../../lib/security/utils/validations"; 
+import { db } from "@/lib/db";
+import { safeRoute } from "@/lib/security/wrappers/safe-route";
+import { hashPassword } from "@/lib/security/auth/password";
+import { generateEmailVerificationToken } from "@/lib/security/auth/verification";
+import { sendVerificationEmail, sendAccountExistsEmail } from "@/lib/email/sender";
+import { emailSchema, strongPasswordSchema } from "@/lib/security/utils/validations"; 
 
 const RegisterSchema = z.object({
   name: z.string().min(2, "O nome deve ter pelo menos 2 caracteres."),

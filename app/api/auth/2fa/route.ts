@@ -1,13 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { jwtVerify } from "jose";
-import { db } from "../../../../lib/db";
-import { safeRoute } from "../../../../lib/security/wrappers/safe-route";
-import { verifyTwoFactorToken } from "../../../../lib/security/auth/two-factor";
-import { createSession } from "../../../../lib/security/auth/session";
-import { createAuditLog } from "../../../../lib/security/audit/audit.service";
-import { AuditEvent } from "../../../../lib/security/audit/audit.events";
-import { UnauthorizedError } from "../../../../lib/security/guards/require-auth";
+import { db } from "@/lib/db";
+import { safeRoute } from "@/lib/security/wrappers/safe-route";
+import { verifyTwoFactorToken } from "@/lib/security/auth/two-factor";
+import { createSession } from "@/lib/security/auth/session";
+import { createAuditLog } from "@/lib/security/audit/audit.service";
+import { AuditEvent } from "@/lib/security/audit/audit.events";
+import { UnauthorizedError } from "@/lib/security/guards/require-auth";
 
 const TwoFactorSchema = z.object({
   code: z.string().length(6, "Código inválido."),

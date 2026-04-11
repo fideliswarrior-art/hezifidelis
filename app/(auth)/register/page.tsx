@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { secureFetch } from "../../../lib/utils/secure-fetch";
+import { secureFetch } from "@/lib/utils/secure-fetch";
 
 export default function RegisterPage() {
   const [step, setStep] = useState<"FORM" | "SUCCESS">("FORM");

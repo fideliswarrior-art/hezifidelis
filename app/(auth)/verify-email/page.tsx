@@ -2,7 +2,7 @@
 
 import { useEffect, useState, use } from "react";
 import Link from "next/link";
-import { verifyEmail } from "../../../lib/actions/auth"; // Server Action do backend
+import { verifyEmail } from "@/lib/actions/auth"; // Server Action do backend
 
 export default function VerifyEmailPage({ searchParams }: { searchParams: Promise<{ token?: string }> }) {
   const resolvedParams = use(searchParams);

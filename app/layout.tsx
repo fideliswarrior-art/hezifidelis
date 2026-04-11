@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 // Importamos uma fonte limpa e moderna do Google Fonts para dar aquela cara de "Overtime Elite"
 import { Inter } from "next/font/google"; 
-import "./globals.css"; // É AQUI QUE O TAILWIND ENTRA!
+import "@/globals.css"; // É AQUI QUE O TAILWIND ENTRA!
 
 const inter = Inter({ subsets: ["latin"] });
 
