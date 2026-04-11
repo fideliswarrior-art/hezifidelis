@@ -1,13 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
-import { db } from "../../../../lib/db";
-import { verifyPassword } from "../../../../lib/security/auth/password";
-import { safeRoute } from "../../../../lib/security/wrappers/safe-route";
-import { UnauthorizedError } from "../../../../lib/security/guards/require-auth";
-import { createAuditLog } from "../../../../lib/security/audit/audit.service";
-import { AuditEvent } from "../../../../lib/security/audit/audit.events";
-import { emailSchema, passwordLoginSchema } from "../../../../lib/security/utils/validations";
-import { generateTwoFactorSecret } from "../../../../lib/security/auth/two-factor";
+import { db } from "@/lib/db";
+import { verifyPassword } from "@/lib/security/auth/password";
+import { safeRoute } from "@/lib/security/wrappers/safe-route";
+import { UnauthorizedError } from "@/lib/security/guards/require-auth";
+import { createAuditLog } from "@/lib/security/audit/audit.service";
+import { AuditEvent } from "@/lib/security/audit/audit.events";
+import { emailSchema, passwordLoginSchema } from "@/lib/security/utils/validations";
+import { generateTwoFactorSecret } from "@/lib/security/auth/two-factor";
 import { SignJWT } from "jose"; // Usado para assinar o pre_auth_token
 
 const LoginSchema = z.object({

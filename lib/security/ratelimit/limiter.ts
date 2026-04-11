@@ -1,4 +1,4 @@
-import { rateLimitBuckets, type RateLimitBucket } from "./buckets";
+import { rateLimitBuckets, type RateLimitBucket } from "@/lib/security/ratelimit/buckets";
 
 export class RateLimitError extends Error {
   constructor(message = "Muitas requisições. Tente novamente mais tarde.") {

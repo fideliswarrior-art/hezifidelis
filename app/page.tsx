@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getSession } from "../lib/security/auth/session";
+import { getSession } from "@/lib/security/auth/session";
 
 export default async function HomePage() {
   // Verifica a sessão no servidor instantaneamente!

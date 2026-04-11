@@ -1,10 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { safeRoute } from "../../../../lib/security/wrappers/safe-route.js";
-import { getSession, clearSession, getRefreshTokenFromCookie } from "../../../../lib/security/auth/session.js";
-import { verifyRefreshToken } from "../../../../lib/security/auth/token.js";
-import { blacklistToken } from "../../../../lib/security/auth/blacklist.js";
-import { createAuditLog } from "../../../../lib/security/audit/audit.service.js";
-import { AuditEvent } from "../../../../lib/security/audit/audit.events.js";
+import { safeRoute } from "@/lib/security/wrappers/safe-route.js";
+import { getSession, clearSession, getRefreshTokenFromCookie } from "@/lib/security/auth/session.js";
+import { verifyRefreshToken } from "@/lib/security/auth/token.js";
+import { blacklistToken } from "@/lib/security/auth/blacklist.js";
+import { createAuditLog } from "@/lib/security/audit/audit.service.js";
+import { AuditEvent } from "@/lib/security/audit/audit.events.js";
 
 const logoutHandler = async (req: NextRequest) => {
   const session = await getSession();

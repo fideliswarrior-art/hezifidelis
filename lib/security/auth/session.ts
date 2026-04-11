@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { generateTokens, verifyAccessToken, verifyRefreshToken, type TokenPayload } from "./token";
+import { generateTokens, verifyAccessToken, verifyRefreshToken, type TokenPayload } from "@/lib/security/auth/token";
 
 const ACCESS_COOKIE_NAME = "hezi_access_token";
 const REFRESH_COOKIE_NAME = "hezi_refresh_token";

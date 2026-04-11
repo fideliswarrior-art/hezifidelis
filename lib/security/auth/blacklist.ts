@@ -1,4 +1,4 @@
-import { db } from "../../db";
+import { db } from "@/lib/db";
 
 /**
  * Adiciona o ID único de um token (JTI) à lista de revogação.

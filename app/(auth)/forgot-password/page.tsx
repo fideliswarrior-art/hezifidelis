@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { forgotPassword } from "../../../lib/actions/auth"; // Importando o Server Action
+import { forgotPassword } from "@/lib/actions/auth"; // Importando o Server Action
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");

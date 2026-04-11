@@ -3,7 +3,7 @@
 import { useState, use } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { resetPassword } from "../../../lib/actions/auth";
+import { resetPassword } from "@/lib/actions/auth";
 
 export default function ResetPasswordPage({ searchParams }: { searchParams: Promise<{ token?: string }> }) {
   const router = useRouter();

@@ -1,12 +1,12 @@
 "use server";
 
 import { z } from "zod";
-import { db } from "../db";
-import { safeAction } from "../security/wrappers/safe-action";
-import { generateTwoFactorSecret, verifyTwoFactorToken } from "../security/auth/two-factor";
-import { createAuditLog } from "../security/audit/audit.service";
-import { AuditEvent } from "../security/audit/audit.events";
-import { UnauthorizedError } from "../security/guards/require-auth";
+import { db } from "@/lib/db";
+import { safeAction } from "@/lib/security/wrappers/safe-action";
+import { generateTwoFactorSecret, verifyTwoFactorToken } from "@/lib/security/auth/two-factor";
+import { createAuditLog } from "@/lib/security/audit/audit.service";
+import { AuditEvent } from "@/lib/security/audit/audit.events";
+import { UnauthorizedError } from "@/lib/security/guards/require-auth";
 
 // 1. Action de Inicialização (Gera o QR Code)
 export const setupTwoFactor = async () => {

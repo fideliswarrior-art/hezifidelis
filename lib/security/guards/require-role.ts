@@ -1,6 +1,6 @@
 import { Role } from "@prisma/client";
-import { requireAuth } from "./require-auth";
-import { roleAtLeast } from "../policy/roles";
+import { requireAuth } from "@/lib/security/guards/require-auth";
+import { roleAtLeast } from "@/lib/security/policy/roles";
 
 export class ForbiddenError extends Error {
   constructor(message = "Acesso negado: privilégios insuficientes.") {
