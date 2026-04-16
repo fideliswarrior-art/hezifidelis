@@ -67,6 +67,12 @@ export const rateLimitBuckets = {
     limiter: Ratelimit.slidingWindow(10, "1 m"),
     prefix: "rl:audit",
   }),
+  // Limite de 5 exportações por hora por utilizador (E2.6)
+  dataExport: new Ratelimit({
+    redis,
+    limiter: Ratelimit.slidingWindow(5, "1 h"),
+    prefix: "rl:data_export",
+  }),
 };
 
 export type RateLimitBucket = keyof typeof rateLimitBuckets;

@@ -38,47 +38,7 @@ datasource db {
 //   19. Mídia e Álbuns
 //   20. Patrocinadores
 //   21. Auditoria e Logs
-//
-//   [A]  GameFormat enum + Match.format + Match.isOfficial
-//          Suporte às modalidades 1x1, 2x2, 3x3 e 5x5 no mesmo sistema.
-//          Match.isOfficial distingue torneios com mesários de peladas comunitárias.
-//   [B]  MatchPeriod — placar por quarto/período
-//          Necessário para 5x5 (4 quartos) e 3x3 (1 período + OT).
-//   [C]  MatchMvp + MvpSource enum
-//          Desacopla o MVP da MatchStat. Rastreia se o prêmio veio de cálculo
-//          automático via P-VAL (torneio oficial) ou de votação no Instagram (pelada).
-//   [D]  MatchOfficial + OfficialRole enum
-//          Árbitros e mesários vinculados formalmente à partida.
-//   [E]  MatchEvent + MatchEventType + TeamSide enum
-//          Play-by-play digital. O mesário registra cada lance. MatchStat é derivado.
-//          Suporta correção de lançamentos (isVoided + voidedBy).
-//   [F]  EventRegistration + RegistrationStatus enum
-//          Inscrição de times registrados OU grupos ad-hoc (peladas) em splits/eventos.
-//          Inspirado no play.fiba3x3.com: qualquer grupo pode se inscrever.
-//   [G]  FreeAgentProfile
-//          Jogadores disponíveis para draft ou contratação. Visível para os times.
-//   [H]  VenuePhoto + campos no Venue (lat, lng, surface, isIndoor)
-//          Permite exibir mapa de locais e filtrar quadras por superfície.
-//   [I]  Beneficiary — entidade beneficiada (ONG, orfanato, comunidade)
-//   [J]  CharityCampaign + CampaignUpdate
-//          Campanhas de arrecadação de dinheiro, roupas ou alimentos.
-//          Pode estar vinculada a um split, uma partida específica ou ser standalone.
-//   [K]  Donation + DonationStatus enum
-//          Registro individual de doação (física ou monetária via Order).
-//   [L]  SeasonAward + AwardType enum
-//          MVP da temporada, artilheiro, melhor defensor, impacto comunitário, etc.
-//   [M]  Coupon — modelo de cupom de desconto
-//   [N]  WishlistItem — lista de desejos da loja
-//   [O]  ProductReview — avaliação de produto
-//   [P]  EventAlbum — álbum de fotos por evento, partida ou campanha
-//   [Q]  AuditLog — log imutável de ações do painel administrativo
-//   [R]  SplitType: + COMMUNITY_TOURNAMENT, CHARITY_EVENT, THREES_TOURNAMENT
-//   [S]  NotificationType: + MVP_VOTE_OPEN, CAMPAIGN_UPDATE,
-//                           EVENT_REGISTRATION_STATUS, AWARD_RECEIVED
-//   [T]  Role: + SCOREKEEPER (mesário), REFEREE (árbitro)
-//   [U]  OrderType: + DONATION (doação monetária via loja)
-//   [V]  ArticleCategory: + SOCIAL_ACTION, EVENT_RECAP
-//   [W]  Season.teamSponsors
+//   22. Privacidade e LGPD (Onda 2 - E2.6)
 // =============================================================================
 
 // =============================================================================
@@ -94,27 +54,27 @@ datasource db {
 // SCOREKEEPER: acessa o scorebook digital e lança estatísticas ao vivo.
 // REFEREE: registra faltas técnicas e eventos disciplinares.
 enum Role {
-  USER        // Torcedor / cliente da loja
-  EDITOR      // Jornalista / criador de conteúdo
-  MODERATOR   // Modera comentários e conteúdo publicado
+  USER // Torcedor / cliente da loja
+  EDITOR // Jornalista / criador de conteúdo
+  MODERATOR // Modera comentários e conteúdo publicado
   SCOREKEEPER // Mesário: lança estatísticas ao vivo em torneios oficiais
-  REFEREE     // Árbitro: registra faltas técnicas e eventos disciplinares
-  ADMIN       // Gerente da liga / painel administrativo
+  REFEREE // Árbitro: registra faltas técnicas e eventos disciplinares
+  ADMIN // Gerente da liga / painel administrativo
   SUPER_ADMIN // Acesso irrestrito ao sistema
 }
 
 // [S] Novos tipos adicionados para os fluxos de votação, campanhas e premiação.
 enum NotificationType {
-  MATCH_RESULT               // Resultado de uma partida finalizada
-  MATCH_REMINDER             // Lembrete de jogo próximo (ex: 30min antes)
-  NEWS                       // Nova notícia publicada
-  TICKET_AVAILABLE           // Ingressos disponíveis para venda
-  DRAFT_LIVE                 // Draft acontecendo ao vivo agora
-  SYSTEM                     // Comunicado geral do sistema
-  MVP_VOTE_OPEN              // [S] Votação de MVP aberta no Instagram
-  CAMPAIGN_UPDATE            // [S] Atualização de progresso de campanha beneficente
-  EVENT_REGISTRATION_STATUS  // [S] Inscrição aprovada, rejeitada ou lista de espera
-  AWARD_RECEIVED             // [S] Jogador ou time recebeu um prêmio da temporada
+  MATCH_RESULT // Resultado de uma partida finalizada
+  MATCH_REMINDER // Lembrete de jogo próximo (ex: 30min antes)
+  NEWS // Nova notícia publicada
+  TICKET_AVAILABLE // Ingressos disponíveis para venda
+  DRAFT_LIVE // Draft acontecendo ao vivo agora
+  SYSTEM // Comunicado geral do sistema
+  MVP_VOTE_OPEN // [S] Votação de MVP aberta no Instagram
+  CAMPAIGN_UPDATE // [S] Atualização de progresso de campanha beneficente
+  EVENT_REGISTRATION_STATUS // [S] Inscrição aprovada, rejeitada ou lista de espera
+  AWARD_RECEIVED // [S] Jogador ou time recebeu um prêmio da temporada
 }
 
 // ---------------------------------------------------------------------------
@@ -123,28 +83,28 @@ enum NotificationType {
 
 // [R] Novos tipos para torneios comunitários e eventos beneficentes.
 enum SplitType {
-  WINTER_CUP           // Copa de Inverno
-  SUMMER_LEAGUE        // Liga Principal de Verão
-  PLAYOFFS             // Fase de eliminatória
-  FRIENDLY             // Amistoso / pré-temporada
+  WINTER_CUP // Copa de Inverno
+  SUMMER_LEAGUE // Liga Principal de Verão
+  PLAYOFFS // Fase de eliminatória
+  FRIENDLY // Amistoso / pré-temporada
   COMMUNITY_TOURNAMENT // [R] Torneio comunitário / pelada organizada
-  CHARITY_EVENT        // [R] Evento beneficente (arrecadação de fundos)
-  THREES_TOURNAMENT    // [R] Torneio exclusivo de 3x3
+  CHARITY_EVENT // [R] Evento beneficente (arrecadação de fundos)
+  THREES_TOURNAMENT // [R] Torneio exclusivo de 3x3
 }
 
 enum PhaseType {
-  GROUP_STAGE    // Fase de grupos (round robin)
-  ROUND_OF_16   // Oitavas de final
-  QUARTER_FINAL  // Quartas de final
-  SEMI_FINAL     // Semifinal
-  THIRD_PLACE    // Disputa de 3º lugar
-  FINAL          // Grande Final
+  GROUP_STAGE // Fase de grupos (round robin)
+  ROUND_OF_16 // Oitavas de final
+  QUARTER_FINAL // Quartas de final
+  SEMI_FINAL // Semifinal
+  THIRD_PLACE // Disputa de 3º lugar
+  FINAL // Grande Final
 }
 
 enum SeriesStatus {
-  SCHEDULED    // Série agendada, ainda não iniciou
-  IN_PROGRESS  // Série em andamento
-  FINISHED     // Série concluída (winnerId preenchido)
+  SCHEDULED // Série agendada, ainda não iniciou
+  IN_PROGRESS // Série em andamento
+  FINISHED // Série concluída (winnerId preenchido)
 }
 
 // ---------------------------------------------------------------------------
@@ -156,10 +116,10 @@ enum SeriesStatus {
 // REGRA: Match.format deve ser consistente com o Split.defaultFormat do split pai.
 // O backend deve validar isso ao criar partidas.
 enum GameFormat {
-  ONE_ON_ONE     // 1x1 — duelo individual
-  TWO_ON_TWO     // 2x2 — duplas
+  ONE_ON_ONE // 1x1 — duelo individual
+  TWO_ON_TWO // 2x2 — duplas
   THREE_ON_THREE // 3x3 — regras FIBA 3x3 (10min, 21pts, sem linha de 3)
-  FIVE_ON_FIVE   // 5x5 — basquete tradicional (4 quartos de 10min)
+  FIVE_ON_FIVE // 5x5 — basquete tradicional (4 quartos de 10min)
 }
 
 // ---------------------------------------------------------------------------
@@ -167,66 +127,66 @@ enum GameFormat {
 // ---------------------------------------------------------------------------
 
 enum MatchStatus {
-  SCHEDULED  // Agendada — data e hora definidas
-  LIVE       // Em andamento — placar sendo atualizado em tempo real
-  FINISHED   // Encerrada — resultado definitivo
-  CANCELED   // Cancelada — não será realizada
-  POSTPONED  // Adiada — nova data ainda não definida
-  FORFEIT    // W.O. — ausência formal de um dos times antes do jogo
+  SCHEDULED // Agendada — data e hora definidas
+  LIVE // Em andamento — placar sendo atualizado em tempo real
+  FINISHED // Encerrada — resultado definitivo
+  CANCELED // Cancelada — não será realizada
+  POSTPONED // Adiada — nova data ainda não definida
+  FORFEIT // W.O. — ausência formal de um dos times antes do jogo
 }
 
 // Como a partida foi encerrada (preenchido apenas quando status = FINISHED).
 enum WinType {
-  REGULATION       // Tempo normal
+  REGULATION // Tempo normal
   WIN_BEFORE_LIMIT // Atingiu 21 pts antes do tempo (regra 3x3)
-  OVERTIME         // Prorrogação
-  FORFEIT          // Vitória por W.O. (adversário não compareceu ou foi desclassificado)
+  OVERTIME // Prorrogação
+  FORFEIT // Vitória por W.O. (adversário não compareceu ou foi desclassificado)
 }
 
 // [D] Papéis dos responsáveis vinculados à partida.
 enum OfficialRole {
-  REFEREE     // Árbitro principal
+  REFEREE // Árbitro principal
   SCOREKEEPER // Mesário: responsável pelo scorebook digital
-  TIMEKEEPER  // Cronometrista
-  VOLUNTEER   // Voluntário de apoio geral
+  TIMEKEEPER // Cronometrista
+  VOLUNTEER // Voluntário de apoio geral
 }
 
 // [E] Tipos de evento registrados no play-by-play pelo mesário.
 // Cada MatchEvent é um lance atômico da partida, fonte de verdade para MatchStat.
 enum MatchEventType {
   // --- Arremessos ---
-  TWO_POINT_MADE      // Bandeja ou arremesso de 2pts convertido
-  TWO_POINT_MISSED    // Arremesso de 2pts errado
-  THREE_POINT_MADE    // Arremesso de 3pts convertido
-  THREE_POINT_MISSED  // Arremesso de 3pts errado
-  FREE_THROW_MADE     // Lance livre convertido
-  FREE_THROW_MISSED   // Lance livre errado
+  TWO_POINT_MADE // Bandeja ou arremesso de 2pts convertido
+  TWO_POINT_MISSED // Arremesso de 2pts errado
+  THREE_POINT_MADE // Arremesso de 3pts convertido
+  THREE_POINT_MISSED // Arremesso de 3pts errado
+  FREE_THROW_MADE // Lance livre convertido
+  FREE_THROW_MISSED // Lance livre errado
 
   // --- Rebotes ---
-  REBOUND_OFFENSIVE   // Rebote ofensivo
-  REBOUND_DEFENSIVE   // Rebote defensivo
+  REBOUND_OFFENSIVE // Rebote ofensivo
+  REBOUND_DEFENSIVE // Rebote defensivo
 
   // --- Defesa ---
-  STEAL               // Roubo de bola
-  BLOCK               // Bloqueio / toco
+  STEAL // Roubo de bola
+  BLOCK // Bloqueio / toco
 
   // --- Erros ---
-  TURNOVER            // Perda de bola / erro
+  TURNOVER // Perda de bola / erro
 
   // --- Faltas ---
-  PERSONAL_FOUL       // Falta pessoal
-  TECHNICAL_FOUL      // Falta técnica
-  FLAGRANT_FOUL       // Falta flagrante
+  PERSONAL_FOUL // Falta pessoal
+  TECHNICAL_FOUL // Falta técnica
+  FLAGRANT_FOUL // Falta flagrante
 
   // --- Controle de jogo (teamSide e playerId são null nestes) ---
-  TIMEOUT_CALLED      // Tempo-técnico solicitado
-  SUBSTITUTION_IN     // Jogador entra em quadra
-  SUBSTITUTION_OUT    // Jogador sai de quadra
-  PERIOD_START        // Início do quarto/período
-  PERIOD_END          // Fim do quarto/período
-  OVERTIME_START      // Início da prorrogação
-  GAME_START          // Início da partida
-  GAME_END            // Fim da partida
+  TIMEOUT_CALLED // Tempo-técnico solicitado
+  SUBSTITUTION_IN // Jogador entra em quadra
+  SUBSTITUTION_OUT // Jogador sai de quadra
+  PERIOD_START // Início do quarto/período
+  PERIOD_END // Fim do quarto/período
+  OVERTIME_START // Início da prorrogação
+  GAME_START // Início da partida
+  GAME_END // Fim da partida
 }
 
 // [E] Qual lado do placar um evento pertence.
@@ -244,17 +204,17 @@ enum TeamSide {
 // INSTAGRAM: votação pública na enquete do Instagram, importado manualmente pelo admin.
 // ADMIN: escolha manual pelo admin (fallback para casos especiais).
 enum MvpSource {
-  STATS     // P-VAL calculado a partir de MatchStat (torneio oficial)
+  STATS // P-VAL calculado a partir de MatchStat (torneio oficial)
   INSTAGRAM // Enquete pública do Instagram (pelada / torneio comunitário)
-  ADMIN     // Escolha manual do administrador
+  ADMIN // Escolha manual do administrador
 }
 
 // [F] Status do ciclo de vida de uma inscrição em evento.
 enum RegistrationStatus {
-  PENDING   // Aguardando análise pelo administrador
-  APPROVED  // Inscrição aprovada — time confirmado no evento
-  REJECTED  // Inscrição rejeitada (motivo em notes)
-  WAITLIST  // Lista de espera — aguardando vaga
+  PENDING // Aguardando análise pelo administrador
+  APPROVED // Inscrição aprovada — time confirmado no evento
+  REJECTED // Inscrição rejeitada (motivo em notes)
+  WAITLIST // Lista de espera — aguardando vaga
 }
 
 // ---------------------------------------------------------------------------
@@ -264,16 +224,16 @@ enum RegistrationStatus {
 // [L] Tipos de prêmio da temporada. COMMUNITY_IMPACT é específico do contexto
 // social do projeto — reconhece contribuição para ações beneficentes.
 enum AwardType {
-  SEASON_MVP       // MVP da temporada inteira
-  SPLIT_MVP        // MVP de um split específico
-  TOP_SCORER       // Artilheiro (maior média de pontos)
-  BEST_DEFENDER    // Melhor defensor (bloqueios + roubos)
-  BEST_REBOUNDER   // Melhor reboteiro
-  BEST_ASSIST      // Melhor passador
-  BEST_NEWCOMER    // Revelação da temporada
-  SPORTSMANSHIP    // Fair play / espírito esportivo
+  SEASON_MVP // MVP da temporada inteira
+  SPLIT_MVP // MVP de um split específico
+  TOP_SCORER // Artilheiro (maior média de pontos)
+  BEST_DEFENDER // Melhor defensor (bloqueios + roubos)
+  BEST_REBOUNDER // Melhor reboteiro
+  BEST_ASSIST // Melhor passador
+  BEST_NEWCOMER // Revelação da temporada
+  SPORTSMANSHIP // Fair play / espírito esportivo
   COMMUNITY_IMPACT // Impacto social: engajamento em ações beneficentes
-  CUSTOM           // Prêmio personalizado (label obrigatório se CUSTOM)
+  CUSTOM // Prêmio personalizado (label obrigatório se CUSTOM)
 }
 
 // ---------------------------------------------------------------------------
@@ -282,10 +242,10 @@ enum AwardType {
 
 // [I] Tipo de arrecadação da campanha beneficente.
 enum DonationCategory {
-  MONEY   // Arrecadação financeira (R$)
+  MONEY // Arrecadação financeira (R$)
   CLOTHES // Arrecadação de roupas e agasalhos
-  FOOD    // Arrecadação de alimentos não-perecíveis
-  OTHER   // Outros itens (especificado em itemDescription)
+  FOOD // Arrecadação de alimentos não-perecíveis
+  OTHER // Outros itens (especificado em itemDescription)
 }
 
 // [K] Ciclo de vida de uma doação individual.
@@ -293,8 +253,8 @@ enum DonationCategory {
 // RECEIVED: item/valor recebido fisicamente no evento.
 // CONFIRMED: confirmado pelo organizador e registrado na meta da campanha.
 enum DonationStatus {
-  PLEDGED   // Prometido — aguardando entrega
-  RECEIVED  // Recebido fisicamente
+  PLEDGED // Prometido — aguardando entrega
+  RECEIVED // Recebido fisicamente
   CONFIRMED // Confirmado e contabilizado na meta
 }
 
@@ -304,14 +264,14 @@ enum DonationStatus {
 
 // [V] Novas categorias para cobrir o contexto social e recaps de eventos.
 enum ArticleCategory {
-  NEWS         // Notícia geral
-  INTERVIEW    // Entrevista com jogador, presidente ou parceiro
+  NEWS // Notícia geral
+  INTERVIEW // Entrevista com jogador, presidente ou parceiro
   MATCH_REPORT // Relatório / análise pós-jogo
-  OPINION      // Opinião / coluna
+  OPINION // Opinião / coluna
   ANNOUNCEMENT // Comunicado oficial da liga
-  FEATURE      // Reportagem especial / perfil
+  FEATURE // Reportagem especial / perfil
   SOCIAL_ACTION // [V] Cobertura de ações beneficentes e impacto comunitário
-  EVENT_RECAP  // [V] Resumo de evento comunitário (além de partidas formais)
+  EVENT_RECAP // [V] Resumo de evento comunitário (além de partidas formais)
 }
 
 // ---------------------------------------------------------------------------
@@ -333,15 +293,15 @@ enum Position {
   SG // Shooting Guard — Ala-Armador
   SF // Small Forward — Ala
   PF // Power Forward — Ala-Pivô
-  C  // Center — Pivô
+  C // Center — Pivô
 }
 
 enum PlayerStatus {
-  ACTIVE     // Ativo no elenco de algum time
+  ACTIVE // Ativo no elenco de algum time
   FREE_AGENT // Sem time, disponível para draft ou contratação
-  INJURED    // Lesionado — afastado temporariamente
-  SUSPENDED  // Suspenso — impedido de jogar por período definido
-  RETIRED    // Aposentado — encerrou a carreira
+  INJURED // Lesionado — afastado temporariamente
+  SUSPENDED // Suspenso — impedido de jogar por período definido
+  RETIRED // Aposentado — encerrou a carreira
 }
 
 // ---------------------------------------------------------------------------
@@ -349,10 +309,10 @@ enum PlayerStatus {
 // ---------------------------------------------------------------------------
 
 enum DraftStatus {
-  UPCOMING    // Agendado, inscrições ainda não abertas
-  OPEN        // Inscrições abertas para jogadores livres
+  UPCOMING // Agendado, inscrições ainda não abertas
+  OPEN // Inscrições abertas para jogadores livres
   IN_PROGRESS // Draft acontecendo ao vivo
-  COMPLETED   // Concluído
+  COMPLETED // Concluído
 }
 
 // ---------------------------------------------------------------------------
@@ -363,7 +323,7 @@ enum DraftStatus {
 enum MediaType {
   VIDEO // Vídeo (highlights, melhores momentos, transmissões)
   IMAGE // Foto (fotos de jogo, evento, jogadores)
-  GIF   // GIF animado
+  GIF // GIF animado
 }
 
 // ---------------------------------------------------------------------------
@@ -371,10 +331,10 @@ enum MediaType {
 // ---------------------------------------------------------------------------
 
 enum SponsorLevel {
-  TITLE    // Master / naming rights (ex: "Liga Patrocinador X")
-  GOLD     // Ouro
-  SILVER   // Prata
-  BRONZE   // Bronze
+  TITLE // Master / naming rights (ex: "Liga Patrocinador X")
+  GOLD // Ouro
+  SILVER // Prata
+  BRONZE // Bronze
   SUPPORTER // Apoiador / parceiro de menor tier
 }
 
@@ -383,20 +343,20 @@ enum SponsorLevel {
 // ---------------------------------------------------------------------------
 
 enum OrderStatus {
-  PENDING    // Aguardando pagamento
-  PAID       // Pago — pagamento aprovado
+  PENDING // Aguardando pagamento
+  PAID // Pago — pagamento aprovado
   PROCESSING // Separando / preparando o pedido
-  SHIPPED    // Enviado — código de rastreio disponível
-  DELIVERED  // Entregue ao cliente
-  CANCELED   // Cancelado
-  REFUNDED   // Reembolsado
+  SHIPPED // Enviado — código de rastreio disponível
+  DELIVERED // Entregue ao cliente
+  CANCELED // Cancelado
+  REFUNDED // Reembolsado
 }
 
 // [U] DONATION adicionado para doações monetárias feitas pela plataforma de loja.
 // Isso permite que o fluxo Order → Payment seja reutilizado para campanhas.
 enum OrderType {
-  PRODUCT  // Pedido de produtos físicos (camisas, acessórios)
-  TICKET   // Pedido de ingressos para uma partida
+  PRODUCT // Pedido de produtos físicos (camisas, acessórios)
+  TICKET // Pedido de ingressos para uma partida
   DONATION // [U] Doação monetária para campanha beneficente
 }
 
@@ -408,9 +368,9 @@ enum PaymentMethod {
 }
 
 enum PaymentStatus {
-  PENDING  // Aguardando confirmação do gateway
+  PENDING // Aguardando confirmação do gateway
   APPROVED // Aprovado — pagamento confirmado
-  FAILED   // Falhou — pagamento recusado
+  FAILED // Falhou — pagamento recusado
   REFUNDED // Estornado ao cliente
 }
 
@@ -418,6 +378,19 @@ enum TokenType {
   EMAIL_VERIFICATION
   PASSWORD_RESET
   TWO_FACTOR_CONFIRMATION
+}
+
+// ---------------------------------------------------------------------------
+// 1.13 Privacidade e LGPD (Onda 2 - E2.6)
+// ---------------------------------------------------------------------------
+enum ConsentPurpose {
+  ESSENTIAL // Operação básica (sempre obrigatório — base legal: execução de contrato)
+  MARKETING_EMAIL // E-mails de newsletter e campanhas
+  ANALYTICS // Coleta de métricas de uso
+  PROFILE_PUBLIC // Exibir perfil público com estatísticas de jogador
+  PHOTO_EVENTS // Aparecer em álbuns de eventos
+  MINOR_PARENTAL // Consentimento dos responsáveis (jogadores <18)
+  THIRD_PARTY_SHARE // Compartilhar dados com patrocinadores
 }
 
 // =============================================================================
@@ -429,41 +402,44 @@ enum TokenType {
 // REGRA: password deve ser sempre hash bcrypt/argon2 — nunca texto puro.
 // REGRA: para desativar um usuário, use isActive = false. Nunca delete.
 model User {
-  id            String   @id @default(uuid())
+  id            String    @id @default(uuid())
   name          String
-  email         String   @unique
-  password      String   // Hash bcrypt/argon2 — NUNCA armazenar texto puro
-  role          Role     @default(USER)
+  email         String    @unique
+  password      String // Hash bcrypt/argon2 — NUNCA armazenar texto puro
+  role          Role      @default(USER)
   avatarUrl     String?
-  bio           String?  @db.Text
-  isActive      Boolean  @default(true)
-  emailVerified Boolean  @default(false)
+  bio           String?   @db.Text
+  isActive      Boolean   @default(true)
+  emailVerified Boolean   @default(false)
   lastLoginAt   DateTime?
 
   // Campos para Autenticação em 2 Fatores
-  isTwoFactorEnabled Boolean  @default(false)
-  twoFactorSecret    String?  // Armazena a chave base32 do app autenticador
+  isTwoFactorEnabled Boolean @default(false)
+  twoFactorSecret    String? // Armazena a chave base32 do app autenticador
 
   // Mecanismo de Invalidação de Sessões (Camada C2)
-  tokenVersion  Int      @default(0)
+  tokenVersion Int @default(0)
 
   // --- Relações ---
-  orders            Order[]
-  articles          Article[]
-  comments          Comment[]
-  articleLikes      ArticleLike[]
-  tickets           Ticket[]
-  notifications     Notification[]
-  donations         Donation[]          // Doações registradas por este usuário
-  wishlistItems     WishlistItem[]      // [N] Lista de desejos na loja
-  productReviews    ProductReview[]     // [O] Avaliações de produtos
-  matchOfficials    MatchOfficial[]     // [D] Partidas onde este user foi árbitro/mesário
-  auditLogs         AuditLog[]          // [Q] Ações administrativas deste usuário
+  orders         Order[]
+  articles       Article[]
+  comments       Comment[]
+  articleLikes   ArticleLike[]
+  tickets        Ticket[]
+  notifications  Notification[]
+  donations      Donation[] // Doações registradas por este usuário
+  wishlistItems  WishlistItem[] // [N] Lista de desejos na loja
+  productReviews ProductReview[] // [O] Avaliações de produtos
+  matchOfficials MatchOfficial[] // [D] Partidas onde este user foi árbitro/mesário
+  auditLogs      AuditLog[] // [Q] Ações administrativas deste usuário
+  consents       Consent[] // [LGPD] Consentimentos concedidos pelo usuário
+
   // Relações nomeadas para MatchEvent (múltiplos FKs para User)
-  recordedEvents    MatchEvent[]        @relation("EventRecorder")  // [E] Eventos lançados como mesário
-  voidedEvents      MatchEvent[]        @relation("EventVoider")    // [E] Eventos que este user anulou
+  recordedEvents MatchEvent[] @relation("EventRecorder") // [E] Eventos lançados como mesário
+  voidedEvents   MatchEvent[] @relation("EventVoider") // [E] Eventos que este user anulou
+
   // Relação nomeada para MatchMvp (importação manual de resultado do Instagram)
-  importedMvps      MatchMvp[]          @relation("MvpImporter")   // [C] MVPs importados do Instagram
+  importedMvps MatchMvp[] @relation("MvpImporter") // [C] MVPs importados do Instagram
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -511,8 +487,8 @@ model Notification {
   type      NotificationType
   title     String
   body      String
-  payload   Json?            // Dados extras para deep link no app
-  readAt    DateTime?        // null = não lida
+  payload   Json? // Dados extras para deep link no app
+  readAt    DateTime? // null = não lida
   createdAt DateTime         @default(now())
 
   @@index([userId, readAt])
@@ -529,21 +505,21 @@ model Notification {
 // REGRA: apenas uma Season pode ter isActive = true por vez. O backend deve usar
 // uma transaction para desativar as demais ao ativar uma nova.
 model Season {
-  id        String   @id @default(uuid())
-  name      String   // Ex: "Temporada 2025/26"
-  year      Int
-  isActive  Boolean  @default(false)
-  startDate DateTime
-  endDate   DateTime?
-  description String? @db.Text
+  id          String    @id @default(uuid())
+  name        String // Ex: "Temporada 2025/26"
+  year        Int
+  isActive    Boolean   @default(false)
+  startDate   DateTime
+  endDate     DateTime?
+  description String?   @db.Text
 
   // --- Relações ---
-  splits         Split[]
-  drafts         Draft[]
-  playerStats    PlayerSeasonStat[]
-  leagueSponsors LeagueSponsor[]
-  teamSponsors   TeamSponsor[]      // [W] Back-relation
-  awards         SeasonAward[]      // [L] Prêmios desta temporada
+  splits            Split[]
+  drafts            Draft[]
+  playerStats       PlayerSeasonStat[]
+  leagueSponsors    LeagueSponsor[]
+  teamSponsors      TeamSponsor[] // [W] Back-relation
+  awards            SeasonAward[] // [L] Prêmios desta temporada
   freeAgentProfiles FreeAgentProfile[] // Jogadores candidatos ao draft desta temporada
 
   createdAt DateTime @default(now())
@@ -555,17 +531,17 @@ model Season {
 // defaultFormat indica a modalidade principal deste split.
 // REGRA: apenas um Split pode ter isActive = true dentro de uma Season por vez.
 model Split {
-  id            String    @id @default(uuid())
-  name          String    // Ex: "Split 1", "Copa Abril 2025"
+  id            String     @id @default(uuid())
+  name          String // Ex: "Split 1", "Copa Abril 2025"
   type          SplitType
   defaultFormat GameFormat @default(FIVE_ON_FIVE) // [A] Modalidade padrão do split
   seasonId      String
-  season        Season    @relation(fields: [seasonId], references: [id])
+  season        Season     @relation(fields: [seasonId], references: [id])
   startDate     DateTime
   endDate       DateTime?
-  isActive      Boolean   @default(false)
-  description   String?   @db.Text
-  rulesUrl      String?   // Link para regulamento em PDF ou página
+  isActive      Boolean    @default(false)
+  description   String?    @db.Text
+  rulesUrl      String? // Link para regulamento em PDF ou página
 
   // --- Relações ---
   phases             Phase[]
@@ -574,9 +550,9 @@ model Split {
   playoffSeries      PlayoffSeries[]
   playerSplitStats   PlayerSplitStat[]
   eventRegistrations EventRegistration[] // [F] Times inscritos neste split
-  campaigns          CharityCampaign[]   // [J] Campanhas vinculadas a este split
-  albums             EventAlbum[]        // [P] Álbuns de fotos deste split
-  awards             SeasonAward[]       // [L] Prêmios de split
+  campaigns          CharityCampaign[] // [J] Campanhas vinculadas a este split
+  albums             EventAlbum[] // [P] Álbuns de fotos deste split
+  awards             SeasonAward[] // [L] Prêmios de split
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -585,11 +561,11 @@ model Split {
 // Cada Split é dividido em Fases (ex: Grupos → Quartas → Semi → Final).
 model Phase {
   id      String    @id @default(uuid())
-  name    String    // Ex: "Fase de Grupos", "Quartas de Final"
+  name    String // Ex: "Fase de Grupos", "Quartas de Final"
   type    PhaseType
   splitId String
   split   Split     @relation(fields: [splitId], references: [id])
-  order   Int       // Ordem de disputa: 1 = primeira fase, 2 = segunda, etc.
+  order   Int // Ordem de disputa: 1 = primeira fase, 2 = segunda, etc.
 
   // --- Relações ---
   matches       Match[]
@@ -600,7 +576,7 @@ model Phase {
   updatedAt DateTime @updatedAt
 }
 
-// Grupo dentro de uma Fase (ex: "Grupo A", "Grupo B").
+// Grupo dentro de uma Fase (ex: "Grupo A", "Grupo Norte").
 // Times são associados ao grupo via TeamGroup.
 model Group {
   id      String @id @default(uuid())
@@ -627,14 +603,14 @@ model PlayoffSeries {
   split        Split        @relation(fields: [splitId], references: [id])
   phaseId      String
   phase        Phase        @relation(fields: [phaseId], references: [id])
-  seriesNumber Int          // Número da série dentro da fase (para montar o bracket)
+  seriesNumber Int // Número da série dentro da fase (para montar o bracket)
   homeTeamId   String
   homeTeam     Team         @relation("SeriesHomeTeam", fields: [homeTeamId], references: [id])
   awayTeamId   String
   awayTeam     Team         @relation("SeriesAwayTeam", fields: [awayTeamId], references: [id])
   homeWins     Int          @default(0)
   awayWins     Int          @default(0)
-  requiredWins Int          // 2 = Best-of-3 | 3 = Best-of-5 | 4 = Best-of-7
+  requiredWins Int // 2 = Best-of-3 | 3 = Best-of-5 | 4 = Best-of-7
   status       SeriesStatus @default(SCHEDULED)
   winnerId     String?
   winner       Team?        @relation("SeriesWinner", fields: [winnerId], references: [id])
@@ -656,41 +632,41 @@ model PlayoffSeries {
 // patrocinadores e produtos na loja.
 // slug é usado para URLs amigáveis: /times/force-caxias
 model Team {
-  id                String   @id @default(uuid())
-  name              String   @unique
-  slug              String   @unique
-  shortName         String?  // Sigla de 3 letras: "FCX", "YNG"
+  id                String  @id @default(uuid())
+  name              String  @unique
+  slug              String  @unique
+  shortName         String? // Sigla de 3 letras: "FCX", "YNG"
   logoUrl           String?
   bannerUrl         String?
-  primaryColor      String?  // Hex: "#FF5722"
+  primaryColor      String? // Hex: "#FF5722"
   secondaryColor    String?
   // Presidente ao estilo Kings League (pode ser um influenciador, ex-atleta, etc.)
   presidentName     String?
   presidentPhotoUrl String?
-  description       String?  @db.Text
+  description       String? @db.Text
   foundedYear       Int?
-  homeVenueId       String?  // Quadra principal do time (FK para Venue)
-  homeVenue         Venue?   @relation("TeamHomeVenue", fields: [homeVenueId], references: [id])
-  isActive          Boolean  @default(true)
+  homeVenueId       String? // Quadra principal do time (FK para Venue)
+  homeVenue         Venue?  @relation("TeamHomeVenue", fields: [homeVenueId], references: [id])
+  isActive          Boolean @default(true)
 
   // --- Relações ---
-  socialLinks         TeamSocialLink[]
-  contracts           PlayerContract[]
-  homeMatches         Match[]           @relation("HomeTeam")
-  awayMatches         Match[]           @relation("AwayTeam")
-  standings           Standing[]
-  teamGroups          TeamGroup[]
-  products            Product[]
-  sponsors            TeamSponsor[]
-  draftPicks          DraftPick[]
-  media               Media[]
-  rosterSnapshots     RosterSnapshot[]
-  eventRegistrations  EventRegistration[] // [F] Inscrições em torneios
-  awards              SeasonAward[]       // [L] Prêmios coletivos do time
+  socialLinks        TeamSocialLink[]
+  contracts          PlayerContract[]
+  homeMatches        Match[]             @relation("HomeTeam")
+  awayMatches        Match[]             @relation("AwayTeam")
+  standings          Standing[]
+  teamGroups         TeamGroup[]
+  products           Product[]
+  sponsors           TeamSponsor[]
+  draftPicks         DraftPick[]
+  media              Media[]
+  rosterSnapshots    RosterSnapshot[]
+  eventRegistrations EventRegistration[] // [F] Inscrições em torneios
+  awards             SeasonAward[] // [L] Prêmios coletivos do time
   // Relações nomeadas para PlayoffSeries
-  homeSeriesTeam      PlayoffSeries[]   @relation("SeriesHomeTeam")
-  awaySeriesTeam      PlayoffSeries[]   @relation("SeriesAwayTeam")
-  wonSeries           PlayoffSeries[]   @relation("SeriesWinner")
+  homeSeriesTeam     PlayoffSeries[]     @relation("SeriesHomeTeam")
+  awaySeriesTeam     PlayoffSeries[]     @relation("SeriesAwayTeam")
+  wonSeries          PlayoffSeries[]     @relation("SeriesWinner")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -743,19 +719,22 @@ model Player {
   worldRanking  Int?
 
   // --- Relações ---
-  socialLinks       PlayerSocialLink[]
-  contracts         PlayerContract[]
-  matchStats        MatchStat[]
-  seasonStats       PlayerSeasonStat[]
-  splitStats        PlayerSplitStat[]
-  rankingHistory    PlayerRankingHistory[]
-  draftPicks        DraftPick[]
-  media             Media[]
-  rosterSnapshots   RosterSnapshot[]
-  freeAgentProfile  FreeAgentProfile?      // [G] Perfil de jogador livre para draft
-  mvps              MatchMvp[]             // [C] Partidas onde este jogador foi MVP
-  matchEvents       MatchEvent[]           // [E] Eventos de jogo onde este player é o ator
-  awards            SeasonAward[]          // [L] Prêmios individuais recebidos
+  socialLinks      PlayerSocialLink[]
+  contracts        PlayerContract[]
+  matchStats       MatchStat[]
+  seasonStats      PlayerSeasonStat[]
+  splitStats       PlayerSplitStat[]
+  rankingHistory   PlayerRankingHistory[]
+  draftPicks       DraftPick[]
+  media            Media[]
+  rosterSnapshots  RosterSnapshot[]
+  freeAgentProfile FreeAgentProfile? // [G] Perfil de jogador livre para draft
+  mvps             MatchMvp[] // [C] Partidas onde este jogador foi MVP
+  matchEvents      MatchEvent[] // [E] Eventos de jogo onde este player é o ator
+  awards           SeasonAward[] // [L] Prêmios individuais recebidos
+
+  parentalConsentId String?  @unique // [LGPD] Consentimento dos responsáveis (jogadores <18)
+  parentalConsent   Consent? @relation(fields: [parentalConsentId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -782,11 +761,11 @@ model PlayerContract {
   player       Player    @relation(fields: [playerId], references: [id])
   teamId       String
   team         Team      @relation(fields: [teamId], references: [id])
-  jerseyNumber Int       // Número da camisa
+  jerseyNumber Int // Número da camisa
   startDate    DateTime
   endDate      DateTime? // null = contrato vigente
   transferFee  Decimal?  @db.Decimal(10, 2)
-  notes        String?   // Observações sobre a transferência
+  notes        String? // Observações sobre a transferência
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -804,7 +783,7 @@ model RosterSnapshot {
   team         Team     @relation(fields: [teamId], references: [id])
   playerId     String
   player       Player   @relation(fields: [playerId], references: [id])
-  jerseyNumber Int      // Número no momento do snapshot
+  jerseyNumber Int // Número no momento do snapshot
   position     Position // Posição declarada no split
 
   createdAt DateTime @default(now())
@@ -820,7 +799,7 @@ model PlayerRankingHistory {
   playerId      String
   player        Player   @relation(fields: [playerId], references: [id])
   rankingPoints Float
-  position      Int?     // Posição no ranking geral naquele dia
+  position      Int? // Posição no ranking geral naquele dia
   recordedAt    DateTime @default(now())
 
   @@index([playerId, recordedAt])
@@ -834,15 +813,15 @@ model FreeAgentProfile {
   id               String       @id @default(uuid())
   playerId         String       @unique
   player           Player       @relation(fields: [playerId], references: [id])
-  bio              String?      @db.Text    // Breve apresentação do jogador
-  availableFrom    DateTime?               // A partir de quando está disponível
-  preferredFormats GameFormat[]            // [A] Modalidades de interesse (array de enum)
-  videoUrl         String?                 // Link de vídeo de apresentação (YouTube/Instagram)
+  bio              String?      @db.Text // Breve apresentação do jogador
+  availableFrom    DateTime? // A partir de quando está disponível
+  preferredFormats GameFormat[] // [A] Modalidades de interesse (array de enum)
+  videoUrl         String? // Link de vídeo de apresentação (YouTube/Instagram)
   isVisible        Boolean      @default(true) // false = perfil oculto temporariamente
   // Se já candidato para um draft específico (FK para Season):
-  draftSeasonId String? // ID da Season cujo draft ele quer participar
-  draftSeason   Season? @relation(fields: [draftSeasonId], references: [id])
-  notes            String?      @db.Text   // Informações adicionais (ex: disponibilidade, restrições)
+  draftSeasonId    String? // ID da Season cujo draft ele quer participar
+  draftSeason      Season?      @relation(fields: [draftSeasonId], references: [id])
+  notes            String?      @db.Text // Informações adicionais (ex: disponibilidade, restrições)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -856,12 +835,12 @@ model FreeAgentProfile {
 // streamUrl é o link da live (YouTube, Twitch, Instagram) onde o draft é transmitido.
 model Draft {
   id           String      @id @default(uuid())
-  name         String      // Ex: "Draft Split 1 — 2025"
+  name         String // Ex: "Draft Split 1 — 2025"
   seasonId     String
   season       Season      @relation(fields: [seasonId], references: [id])
   scheduledFor DateTime
   status       DraftStatus @default(UPCOMING)
-  streamUrl    String?     // Link da transmissão ao vivo
+  streamUrl    String? // Link da transmissão ao vivo
   description  String?     @db.Text
 
   // --- Relações ---
@@ -875,17 +854,17 @@ model Draft {
 // pickNumber é o número global (1ª escolha geral, 2ª escolha geral...).
 // originalTeamId rastreia trocas: se o FCX usou a pick do YNG, originalTeamId = YNG.id.
 model DraftPick {
-  id             String   @id @default(uuid())
+  id             String  @id @default(uuid())
   draftId        String
-  draft          Draft    @relation(fields: [draftId], references: [id])
-  teamId         String   // Time que fez a escolha
-  team           Team     @relation(fields: [teamId], references: [id])
+  draft          Draft   @relation(fields: [draftId], references: [id])
+  teamId         String // Time que fez a escolha
+  team           Team    @relation(fields: [teamId], references: [id])
   playerId       String
-  player         Player   @relation(fields: [playerId], references: [id])
-  round          Int      // Rodada da escolha
-  pickNumber     Int      // Número global (1, 2, 3...)
-  isKeeper       Boolean  @default(false)  // Jogador mantido da temporada anterior
-  originalTeamId String?                   // Rastreia trocas de picks entre times
+  player         Player  @relation(fields: [playerId], references: [id])
+  round          Int // Rodada da escolha
+  pickNumber     Int // Número global (1, 2, 3...)
+  isKeeper       Boolean @default(false) // Jogador mantido da temporada anterior
+  originalTeamId String? // Rastreia trocas de picks entre times
 
   createdAt DateTime @default(now())
 
@@ -901,18 +880,18 @@ model DraftPick {
 // mapUrl é o link direto para o Google Maps — útil para divulgação de eventos.
 model Venue {
   id       String  @id @default(uuid())
-  name     String  // Ex: "Quadra Poliesportiva da Associação", "Arena FCX"
+  name     String // Ex: "Quadra Poliesportiva da Associação", "Arena FCX"
   city     String
   state    String?
   country  String  @default("Brasil")
   address  String?
-  capacity Int?    // Capacidade de espectadores (se aplicável)
+  capacity Int? // Capacidade de espectadores (se aplicável)
   imageUrl String? // Foto principal do local
   mapUrl   String? // Link Google Maps para divulgação
 
   // [H] Campos novos para filtros e exibição em mapa
-  latitude  Float?  // Latitude para exibição em mapa interativo
-  longitude Float?  // Longitude para exibição em mapa interativo
+  latitude  Float? // Latitude para exibição em mapa interativo
+  longitude Float? // Longitude para exibição em mapa interativo
   surface   String? // Tipo de piso: "asfalto", "madeira", "sintético", "concreto"
   isIndoor  Boolean @default(false) // true = quadra coberta
 
@@ -927,13 +906,13 @@ model Venue {
 
 // [H] Galeria de fotos do local — útil para que os times conheçam a quadra antes.
 model VenuePhoto {
-  id        String   @id @default(uuid())
+  id        String  @id @default(uuid())
   venueId   String
-  venue     Venue    @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  venue     Venue   @relation(fields: [venueId], references: [id], onDelete: Cascade)
   url       String
   caption   String?
-  isPrimary Boolean  @default(false)
-  order     Int      @default(0)
+  isPrimary Boolean @default(false)
+  order     Int     @default(0)
 
   createdAt DateTime @default(now())
 }
@@ -952,7 +931,7 @@ model VenuePhoto {
 //
 // Fluxo: grupo se inscreve → admin aprova → time é adicionado ao grupo/fase.
 model EventRegistration {
-  id   String @id @default(uuid())
+  id String @id @default(uuid())
 
   // Onde está se inscrevendo (um dos dois deve ser preenchido):
   splitId String?
@@ -969,16 +948,16 @@ model EventRegistration {
   contactName   String? // Nome do responsável
   contactPhone  String?
   contactEmail  String?
-  adhocPlayers  Json?   // Array JSON: [{"name":"João","position":"PG"}, ...]
+  adhocPlayers  Json? // Array JSON: [{"name":"João","position":"PG"}, ...]
 
   // Modalidade para a qual estão se inscrevendo:
   gameFormat GameFormat @default(FIVE_ON_FIVE)
 
   status          RegistrationStatus @default(PENDING)
   registrationFee Decimal?           @db.Decimal(10, 2)
-  paidAt          DateTime?          // Quando a taxa foi paga
-  paymentRef      String?            // Referência do pagamento externo (se aplicável)
-  notes           String?            // Observações do time ou do admin
+  paidAt          DateTime? // Quando a taxa foi paga
+  paymentRef      String? // Referência do pagamento externo (se aplicável)
+  notes           String? // Observações do time ou do admin
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1005,22 +984,22 @@ model EventRegistration {
 // [E] events: play-by-play digital (ver MatchEvent)
 model Match {
   id           String      @id @default(uuid())
-  title        String?     // Ex: "Final do Split 1 — FCX vs YNG"
+  title        String? // Ex: "Final do Split 1 — FCX vs YNG"
   scheduledFor DateTime
   status       MatchStatus @default(SCHEDULED)
 
   // [A] Modalidade e caráter da partida
   format     GameFormat @default(FIVE_ON_FIVE) // 1x1, 2x2, 3x3, 5x5
-  isOfficial Boolean    @default(true)  // false = pelada — MVP vai para votação do Instagram
+  isOfficial Boolean    @default(true) // false = pelada — MVP vai para votação do Instagram
 
   // Posição na estrutura da liga (group ou series — nunca ambos)
-  phaseId String?
-  phase   Phase?        @relation(fields: [phaseId], references: [id])
-  groupId String?
-  group   Group?        @relation(fields: [groupId], references: [id])
+  phaseId            String?
+  phase              Phase?         @relation(fields: [phaseId], references: [id])
+  groupId            String?
+  group              Group?         @relation(fields: [groupId], references: [id])
   seriesId           String?
   series             PlayoffSeries? @relation(fields: [seriesId], references: [id])
-  gameNumberInSeries Int?           // Jogo 1, 2, 3... dentro da série de playoffs
+  gameNumberInSeries Int? // Jogo 1, 2, 3... dentro da série de playoffs
 
   venueId String?
   venue   Venue?  @relation(fields: [venueId], references: [id])
@@ -1036,22 +1015,22 @@ model Match {
   awayTeamFouls Int    @default(0)
 
   winType         WinType? // Preenchido ao finalizar a partida
-  durationMinutes Int?     // Duração total em minutos
+  durationMinutes Int? // Duração total em minutos
 
   streamUrl   String? // Link da transmissão ao vivo (YouTube, Instagram, Twitch)
   streamUrlBk String? // Link de transmissão de backup
 
   // --- Relações ---
-  playerStats    MatchStat[]
-  ticketBatches  TicketBatch[]
-  media          Media[]
-  periods        MatchPeriod[]       // [B] Placar por quarto/período
-  mvp            MatchMvp?           // [C] MVP da partida (1:1, opcional)
-  officials      MatchOfficial[]     // [D] Árbitros e mesários
-  events         MatchEvent[]        // [E] Play-by-play digital
-  registrations  EventRegistration[] // [F] Inscrições para esta partida específica
-  campaigns      CharityCampaign[]   // [J] Campanhas beneficentes vinculadas a esta partida
-  albums         EventAlbum[]        // [P] Álbuns de fotos desta partida
+  playerStats   MatchStat[]
+  ticketBatches TicketBatch[]
+  media         Media[]
+  periods       MatchPeriod[] // [B] Placar por quarto/período
+  mvp           MatchMvp? // [C] MVP da partida (1:1, opcional)
+  officials     MatchOfficial[] // [D] Árbitros e mesários
+  events        MatchEvent[] // [E] Play-by-play digital
+  registrations EventRegistration[] // [F] Inscrições para esta partida específica
+  campaigns     CharityCampaign[] // [J] Campanhas beneficentes vinculadas a esta partida
+  albums        EventAlbum[] // [P] Álbuns de fotos desta partida
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1071,10 +1050,10 @@ model MatchPeriod {
   id           String @id @default(uuid())
   matchId      String
   match        Match  @relation(fields: [matchId], references: [id], onDelete: Cascade)
-  periodNumber Int    // 1=Q1, 2=Q2, 3=Q3, 4=Q4, 5+=OT
+  periodNumber Int // 1=Q1, 2=Q2, 3=Q3, 4=Q4, 5+=OT
   homeScore    Int    @default(0)
   awayScore    Int    @default(0)
-  durationSecs Int?   // Duração real do período em segundos
+  durationSecs Int? // Duração real do período em segundos
 
   @@unique([matchId, periodNumber])
 }
@@ -1088,22 +1067,22 @@ model MatchPeriod {
 // REGRA: isMvp em MatchStat deve ser sincronizado com este registro.
 //        O backend deve atualizar ambos atomicamente (em uma transaction).
 model MatchMvp {
-  id              String    @id @default(uuid())
-  matchId         String    @unique // 1:1 com Match — apenas um MVP por partida
-  match           Match     @relation(fields: [matchId], references: [id], onDelete: Cascade)
-  playerId        String
-  player          Player    @relation(fields: [playerId], references: [id])
-  source          MvpSource // STATS, INSTAGRAM ou ADMIN
+  id       String    @id @default(uuid())
+  matchId  String    @unique // 1:1 com Match — apenas um MVP por partida
+  match    Match     @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  playerId String
+  player   Player    @relation(fields: [playerId], references: [id])
+  source   MvpSource // STATS, INSTAGRAM ou ADMIN
 
   // Campos específicos para MVP por votação do Instagram:
-  instagramPollUrl  String?  // Link da enquete do Instagram Stories/Post
-  pollVotesTotal    Int?     // Total de votos na enquete
-  pollVotesPlayer   Int?     // Votos que este jogador recebeu
-  pollScreenshotUrl String?  // Print do resultado para registro histórico
+  instagramPollUrl  String? // Link da enquete do Instagram Stories/Post
+  pollVotesTotal    Int? // Total de votos na enquete
+  pollVotesPlayer   Int? // Votos que este jogador recebeu
+  pollScreenshotUrl String? // Print do resultado para registro histórico
 
   // Rastreabilidade da importação manual:
   importedById String?
-  importedBy   User?   @relation("MvpImporter", fields: [importedById], references: [id])
+  importedBy   User?     @relation("MvpImporter", fields: [importedById], references: [id])
   importedAt   DateTime?
 
   createdAt DateTime @default(now())
@@ -1139,16 +1118,16 @@ model MatchOfficial {
 // REGRA: eventos de controle de jogo (PERIOD_START, GAME_END, etc.)
 //        têm teamSide e playerId nulos.
 model MatchEvent {
-  id      String         @id @default(uuid())
-  matchId String
-  match   Match          @relation(fields: [matchId], references: [id], onDelete: Cascade)
-  type    MatchEventType
-  teamSide  TeamSide? // Qual time executou a ação (null para eventos de controle)
-  playerId  String?   // Jogador que executou o lance (null para eventos de controle)
-  player    Player?   @relation(fields: [playerId], references: [id])
+  id       String         @id @default(uuid())
+  matchId  String
+  match    Match          @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  type     MatchEventType
+  teamSide TeamSide? // Qual time executou a ação (null para eventos de controle)
+  playerId String? // Jogador que executou o lance (null para eventos de controle)
+  player   Player?        @relation(fields: [playerId], references: [id])
 
-  period      Int?  // Quarto/período em que ocorreu (1, 2, 3, 4, 5=OT...)
-  gameClockMs Int?  // Milissegundos decorridos no período quando o evento ocorreu
+  period      Int? // Quarto/período em que ocorreu (1, 2, 3, 4, 5=OT...)
+  gameClockMs Int? // Milissegundos decorridos no período quando o evento ocorreu
 
   // Para eventos de pontuação: quantos pontos valem
   value Int? // 1 (lance livre), 2 (bandeja/mid-range), 3 (três pontos)
@@ -1160,10 +1139,10 @@ model MatchEvent {
   recordedBy   User   @relation("EventRecorder", fields: [recordedById], references: [id])
 
   // Anulação (correção de erro do mesário)
-  isVoided Boolean   @default(false)
-  voidedAt DateTime?
+  isVoided   Boolean   @default(false)
+  voidedAt   DateTime?
   voidedById String?
-  voidedBy   User?   @relation("EventVoider", fields: [voidedById], references: [id])
+  voidedBy   User?     @relation("EventVoider", fields: [voidedById], references: [id])
   voidReason String? // Motivo da anulação para auditoria
 
   createdAt DateTime @default(now())
@@ -1189,21 +1168,21 @@ model MatchEvent {
 // ShootingEfficiency = Points / FieldGoalsAttempted
 // ATENÇÃO: verificar FieldGoalsAttempted > 0 antes de calcular. Armazenar NULL se zero.
 model MatchStat {
-  id      String @id @default(uuid())
-  matchId String
-  match   Match  @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  id       String @id @default(uuid())
+  matchId  String
+  match    Match  @relation(fields: [matchId], references: [id], onDelete: Cascade)
   playerId String
   player   Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
 
   // --- Estatísticas básicas ---
   points            Int @default(0)
   assists           Int @default(0)
-  rebounds          Int @default(0)   // Total (ofensivo + defensivo)
+  rebounds          Int @default(0) // Total (ofensivo + defensivo)
   offensiveRebounds Int @default(0)
   defensiveRebounds Int @default(0)
   steals            Int @default(0)
-  blocks            Int @default(0)   // Tocos
-  turnovers         Int @default(0)   // Erros / perdas de bola
+  blocks            Int @default(0) // Tocos
+  turnovers         Int @default(0) // Erros / perdas de bola
   fouls             Int @default(0)
   minutesPlayed     Int @default(0)
 
@@ -1248,31 +1227,31 @@ model PlayerSeasonStat {
   gamesPlayed Int @default(0)
 
   // Totais acumulados
-  totalPoints       Int @default(0)
-  totalAssists      Int @default(0)
-  totalRebounds     Int @default(0)
-  totalSteals       Int @default(0)
-  totalBlocks       Int @default(0)
-  totalTurnovers    Int @default(0)
-  totalFouls        Int @default(0)
-  totalMinutes      Int @default(0)
-  totalDunks        Int @default(0)
+  totalPoints        Int @default(0)
+  totalAssists       Int @default(0)
+  totalRebounds      Int @default(0)
+  totalSteals        Int @default(0)
+  totalBlocks        Int @default(0)
+  totalTurnovers     Int @default(0)
+  totalFouls         Int @default(0)
+  totalMinutes       Int @default(0)
+  totalDunks         Int @default(0)
   totalBuzzerBeaters Int @default(0)
-  totalDrives       Int @default(0)
-  totalKeyAssists   Int @default(0)
+  totalDrives        Int @default(0)
+  totalKeyAssists    Int @default(0)
 
   // Médias por jogo
-  avgPoints      Float @default(0) // PPG
-  avgAssists     Float @default(0) // APG
-  avgRebounds    Float @default(0) // RPG
-  avgBlocks      Float @default(0) // BPG
-  avgSteals      Float @default(0) // SPG
+  avgPoints      Float  @default(0) // PPG
+  avgAssists     Float  @default(0) // APG
+  avgRebounds    Float  @default(0) // RPG
+  avgBlocks      Float  @default(0) // BPG
+  avgSteals      Float  @default(0) // SPG
   avgPlayerValue Float? // P-VAL médio
 
   // Percentuais de arremesso
-  fieldGoalPct   Float? // FG%
-  threePointPct  Float? // 3P%
-  freeThrowPct   Float? // FT%
+  fieldGoalPct  Float? // FG%
+  threePointPct Float? // 3P%
+  freeThrowPct  Float? // FT%
 
   // Recordes pessoais na temporada
   bestGamePoints   Int @default(0)
@@ -1291,7 +1270,7 @@ model PlayerSeasonStat {
 // Permite exibir abas como "2025-2026 Playoffs", "2025-2026 Split 1" no perfil.
 // REGRA: gerado via job — não editar manualmente.
 model PlayerSplitStat {
-  id      String @id @default(uuid())
+  id       String @id @default(uuid())
   playerId String
   player   Player @relation(fields: [playerId], references: [id])
   splitId  String
@@ -1312,11 +1291,11 @@ model PlayerSplitStat {
   totalDrives        Int @default(0)
   totalKeyAssists    Int @default(0)
 
-  avgPoints      Float @default(0)
-  avgAssists     Float @default(0)
-  avgRebounds    Float @default(0)
-  avgBlocks      Float @default(0)
-  avgSteals      Float @default(0)
+  avgPoints      Float  @default(0)
+  avgAssists     Float  @default(0)
+  avgRebounds    Float  @default(0)
+  avgBlocks      Float  @default(0)
+  avgSteals      Float  @default(0)
   avgPlayerValue Float?
 
   fieldGoalPct  Float?
@@ -1342,7 +1321,7 @@ model PlayerSplitStat {
 // REGRA: exatamente um de (splitId, groupId) deve ser preenchido. Nunca ambos.
 //        Verificar no service antes de inserir.
 // streak: "W3" = três vitórias seguidas | "L2" = duas derrotas seguidas.
-//         Gerado no backend a partir dos resultados recentes.
+//          Gerado no backend a partir dos resultados recentes.
 //
 // ATENÇÃO — NULL no PostgreSQL:
 //   @@unique([teamId, splitId]) NÃO previne duplicatas quando splitId IS NULL,
@@ -1386,10 +1365,10 @@ model SeasonAward {
   id       String    @id @default(uuid())
   seasonId String
   season   Season    @relation(fields: [seasonId], references: [id])
-  splitId  String?   // null = prêmio de toda a temporada | preenchido = prêmio de split
+  splitId  String? // null = prêmio de toda a temporada | preenchido = prêmio de split
   split    Split?    @relation(fields: [splitId], references: [id])
   type     AwardType
-  label    String?   // Obrigatório se type = CUSTOM (ex: "Prêmio Coração de Leão")
+  label    String? // Obrigatório se type = CUSTOM (ex: "Prêmio Coração de Leão")
 
   // Destinatário (jogador OU time — nunca ambos)
   playerId String?
@@ -1412,10 +1391,10 @@ model SeasonAward {
 // [I] Entidade beneficiada pelas campanhas (ONG, orfanato, comunidade, etc.).
 // Um Beneficiary pode receber múltiplas campanhas ao longo do tempo.
 model Beneficiary {
-  id           String   @id @default(uuid())
-  name         String   // Ex: "Orfanato Lar Esperança", "ONG Raízes do Futuro"
-  type         String   // "orfanato", "ONG", "associação", "comunidade"
-  description  String?  @db.Text
+  id           String  @id @default(uuid())
+  name         String // Ex: "Orfanato Lar Esperança", "ONG Raízes do Futuro"
+  type         String // "orfanato", "ONG", "associação", "comunidade"
+  description  String? @db.Text
   logoUrl      String?
   websiteUrl   String?
   contactName  String?
@@ -1423,7 +1402,7 @@ model Beneficiary {
   contactPhone String?
   address      String?
   city         String?
-  isActive     Boolean  @default(true)
+  isActive     Boolean @default(true)
 
   // --- Relações ---
   campaigns CharityCampaign[]
@@ -1442,20 +1421,20 @@ model Beneficiary {
 // REGRA: splitId e matchId podem coexistir (ex: campanha do split com evento
 //        especial em uma partida). Ambos podem ser null se a campanha for standalone.
 model CharityCampaign {
-  id              String           @id @default(uuid())
-  title           String           // Ex: "Agasalho Solidário — Inverno 2025"
-  description     String           @db.Text
-  category        DonationCategory
-  isActive        Boolean          @default(true)
-  startDate       DateTime
-  endDate         DateTime?
-  mediaUrl        String?          // Banner/flyer da campanha
+  id          String           @id @default(uuid())
+  title       String // Ex: "Agasalho Solidário — Inverno 2025"
+  description String           @db.Text
+  category    DonationCategory
+  isActive    Boolean          @default(true)
+  startDate   DateTime
+  endDate     DateTime?
+  mediaUrl    String? // Banner/flyer da campanha
 
   // Metas (usar o par correto conforme category):
-  goalAmount    Decimal? @db.Decimal(10, 2) // Meta em R$ (category = MONEY)
-  raisedAmount  Decimal? @db.Decimal(10, 2) // Arrecadado em R$
-  goalQuantity  Int?                         // Meta em itens (CLOTHES/FOOD/OTHER)
-  raisedQuantity Int?                        // Itens arrecadados
+  goalAmount     Decimal? @db.Decimal(10, 2) // Meta em R$ (category = MONEY)
+  raisedAmount   Decimal? @db.Decimal(10, 2) // Arrecadado em R$
+  goalQuantity   Int? // Meta em itens (CLOTHES/FOOD/OTHER)
+  raisedQuantity Int? // Itens arrecadados
 
   // Beneficiário da campanha:
   beneficiaryId String
@@ -1470,7 +1449,7 @@ model CharityCampaign {
   // --- Relações ---
   updates   CampaignUpdate[]
   donations Donation[]
-  albums    EventAlbum[]     // [P] Fotos do evento/campanha
+  albums    EventAlbum[] // [P] Fotos do evento/campanha
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1488,7 +1467,7 @@ model CampaignUpdate {
   campaignId String
   campaign   CharityCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
   content    String          @db.Text
-  imageUrl   String?         // Foto do evento para ilustrar a atualização
+  imageUrl   String? // Foto do evento para ilustrar a atualização
 
   createdAt DateTime @default(now())
 }
@@ -1510,8 +1489,8 @@ model Donation {
   campaign   CharityCampaign @relation(fields: [campaignId], references: [id])
 
   // Doador (pode ser anônimo):
-  userId    String?
-  user      User?   @relation(fields: [userId], references: [id])
+  userId     String?
+  user       User?   @relation(fields: [userId], references: [id])
   donorName  String? // Para doadores não cadastrados ou doações anônimas nomeadas
   donorEmail String? // Para confirmação por e-mail (não cadastrados)
 
@@ -1519,8 +1498,8 @@ model Donation {
   category        DonationCategory
   status          DonationStatus   @default(PLEDGED)
   amount          Decimal?         @db.Decimal(10, 2) // Para category = MONEY
-  itemDescription String?          // Para CLOTHES/FOOD/OTHER (ex: "10kg arroz")
-  quantity        Int?             // Quantidade de itens
+  itemDescription String? // Para CLOTHES/FOOD/OTHER (ex: "10kg arroz")
+  quantity        Int? // Quantidade de itens
   notes           String?
 
   // Rastreio de pagamento para doações monetárias online:
@@ -1591,12 +1570,12 @@ model ArticleTag {
 // Comentários de usuários em artigos. Suporta respostas aninhadas (1 nível).
 // isApproved = false por padrão — moderadores devem aprovar antes de exibir.
 model Comment {
-  id        String  @id @default(uuid())
-  content   String  @db.Text
-  articleId String
-  article   Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
-  authorId  String
-  author    User    @relation(fields: [authorId], references: [id])
+  id         String  @id @default(uuid())
+  content    String  @db.Text
+  articleId  String
+  article    Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  authorId   String
+  author     User    @relation(fields: [authorId], references: [id])
   isApproved Boolean @default(false)
 
   // Suporte a respostas aninhadas (máximo 1 nível de profundidade)
@@ -1611,9 +1590,9 @@ model Comment {
 // Curtidas em artigos — controle de duplicatas via chave composta.
 model ArticleLike {
   userId    String
-  user      User    @relation(fields: [userId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
   articleId String
-  article   Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  article   Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
 
   @@id([userId, articleId])
@@ -1625,9 +1604,9 @@ model ArticleLike {
 
 // Categoria de produtos da loja.
 model ProductCategory {
-  id          String @id @default(uuid())
-  name        String @unique // "Camisetas", "Acessórios", "Bonés", "Calçados"
-  slug        String @unique
+  id          String  @id @default(uuid())
+  name        String  @unique // "Camisetas", "Acessórios", "Bonés", "Calçados"
+  slug        String  @unique
   description String?
   imageUrl    String?
 
@@ -1655,8 +1634,8 @@ model Product {
   images        ProductImage[]
   variants      ProductVariant[]
   orderItems    OrderItem[]
-  wishlistItems WishlistItem[]   // [N] Usuários que têm este produto na lista de desejos
-  reviews       ProductReview[]  // [O] Avaliações de clientes
+  wishlistItems WishlistItem[] // [N] Usuários que têm este produto na lista de desejos
+  reviews       ProductReview[] // [O] Avaliações de clientes
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1678,14 +1657,14 @@ model ProductImage {
 // @@unique([orderId, productId, variantId]) NÃO impede duplicatas quando variantId IS NULL.
 // Trate no backend: ao adicionar item sem variante, faça upsert somando quantity.
 model ProductVariant {
-  id           String   @id @default(uuid())
-  productId    String
-  product      Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  sku          String   @unique // Código interno único (ex: "FCX-CAMISA-M-PRETA")
-  size         String?          // "PP", "P", "M", "G", "GG", "XGG"
-  color        String?
-  stock        Int      @default(0)
-  priceAdjust  Decimal? @db.Decimal(10, 2) // Delta sobre o preço base do produto
+  id          String   @id @default(uuid())
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  sku         String   @unique // Código interno único (ex: "FCX-CAMISA-M-PRETA")
+  size        String? // "PP", "P", "M", "G", "GG", "XGG"
+  color       String?
+  stock       Int      @default(0)
+  priceAdjust Decimal? @db.Decimal(10, 2) // Delta sobre o preço base do produto
 
   orderItems OrderItem[]
 }
@@ -1693,9 +1672,9 @@ model ProductVariant {
 // [N] Lista de desejos da loja — produtos salvos pelo usuário para comprar depois.
 model WishlistItem {
   userId    String
-  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   productId String
-  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
 
   @@id([userId, productId])
@@ -1710,7 +1689,7 @@ model ProductReview {
   product    Product @relation(fields: [productId], references: [id], onDelete: Cascade)
   userId     String
   user       User    @relation(fields: [userId], references: [id])
-  rating     Int     // 1 a 5 estrelas
+  rating     Int // 1 a 5 estrelas
   title      String?
   body       String? @db.Text
   isApproved Boolean @default(false)
@@ -1731,9 +1710,9 @@ model Coupon {
   id            String    @id @default(uuid())
   code          String    @unique
   description   String?
-  discountPct   Int?      // Desconto percentual (ex: 10 = 10% OFF)
+  discountPct   Int? // Desconto percentual (ex: 10 = 10% OFF)
   discountFixed Decimal?  @db.Decimal(10, 2) // Desconto fixo em R$
-  maxUses       Int?      // null = ilimitado
+  maxUses       Int? // null = ilimitado
   usedCount     Int       @default(0)
   validFrom     DateTime
   validUntil    DateTime?
@@ -1754,14 +1733,14 @@ model Order {
   orderNumber    String      @unique @default(cuid()) // Legível para suporte (ex: "clxyz123")
   type           OrderType   @default(PRODUCT)
   totalAmount    Decimal     @db.Decimal(10, 2)
-  shippingAmount Decimal     @db.Decimal(10, 2) @default(0)
-  discountAmount Decimal     @db.Decimal(10, 2) @default(0)
+  shippingAmount Decimal     @default(0) @db.Decimal(10, 2)
+  discountAmount Decimal     @default(0) @db.Decimal(10, 2)
   status         OrderStatus @default(PENDING)
 
   // Cupom de desconto aplicado:
-  couponCode String?         // Snapshot do código (preserva histórico)
-  couponId   String?         // FK para validação de uso
-  coupon     Coupon?         @relation(fields: [couponId], references: [id])
+  couponCode String? // Snapshot do código (preserva histórico)
+  couponId   String? // FK para validação de uso
+  coupon     Coupon? @relation(fields: [couponId], references: [id])
 
   notes String?
 
@@ -1778,9 +1757,9 @@ model Order {
   shippingCountry String? @default("Brasil")
 
   // --- Relações ---
-  items    OrderItem[]
-  payments Payment[]
-  tickets  Ticket[]   // [G original] Ingressos gerados por este pedido
+  items     OrderItem[]
+  payments  Payment[]
+  tickets   Ticket[] // [G original] Ingressos gerados por este pedido
   donations Donation[] // [K] Doações monetárias feitas por este pedido
 
   createdAt DateTime @default(now())
@@ -1792,15 +1771,15 @@ model Order {
 // @@unique([orderId, productId, variantId]) não funciona quando variantId IS NULL.
 // Usar upsert no backend ao adicionar item sem variante.
 model OrderItem {
-  id        String         @id @default(uuid())
+  id        String          @id @default(uuid())
   orderId   String
-  order     Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  order     Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
   productId String
-  product   Product        @relation(fields: [productId], references: [id])
+  product   Product         @relation(fields: [productId], references: [id])
   variantId String?
   variant   ProductVariant? @relation(fields: [variantId], references: [id])
   quantity  Int
-  unitPrice Decimal        @db.Decimal(10, 2) // Preço no momento da compra (snapshot)
+  unitPrice Decimal         @db.Decimal(10, 2) // Preço no momento da compra (snapshot)
 
   @@unique([orderId, productId, variantId])
 }
@@ -1814,7 +1793,7 @@ model Payment {
   amount     Decimal       @db.Decimal(10, 2)
   method     PaymentMethod
   status     PaymentStatus @default(PENDING)
-  externalId String?       // ID no gateway de pagamento
+  externalId String? // ID no gateway de pagamento
   paidAt     DateTime?
 
   createdAt DateTime @default(now())
@@ -1828,16 +1807,16 @@ model Payment {
 // Lote de ingressos para uma partida (ex: "Pista Geral", "Cadeira Numerada", "VIP").
 // soldQuantity deve ser incrementado atomicamente pelo backend ao confirmar um pedido.
 model TicketBatch {
-  id            String   @id @default(uuid())
+  id            String    @id @default(uuid())
   matchId       String
-  match         Match    @relation(fields: [matchId], references: [id])
-  name          String   // Ex: "Pista Geral", "Cadeira Numerada", "Camarote VIP"
+  match         Match     @relation(fields: [matchId], references: [id])
+  name          String // Ex: "Pista Geral", "Cadeira Numerada", "Camarote VIP"
   description   String?
-  price         Decimal  @db.Decimal(10, 2)
+  price         Decimal   @db.Decimal(10, 2)
   totalQuantity Int
-  soldQuantity  Int      @default(0)
-  maxPerUser    Int      @default(4)    // Limite de ingressos por usuário neste lote
-  isActive      Boolean  @default(true)
+  soldQuantity  Int       @default(0)
+  maxPerUser    Int       @default(4) // Limite de ingressos por usuário neste lote
+  isActive      Boolean   @default(true)
   saleStartsAt  DateTime?
   saleEndsAt    DateTime?
 
@@ -1856,19 +1835,19 @@ model Ticket {
   id      String      @id @default(uuid())
   batchId String
   batch   TicketBatch @relation(fields: [batchId], references: [id])
-  userId  String      // Quem COMPROU (pode diferir do portador)
+  userId  String // Quem COMPROU (pode diferir do portador)
   user    User        @relation(fields: [userId], references: [id])
-  orderId String?     // Pedido que gerou este ingresso
+  orderId String? // Pedido que gerou este ingresso
   order   Order?      @relation(fields: [orderId], references: [id])
 
   // Portador nominal (opcional — para ingressos nominados ou VIP):
   holderName     String? // Nome de quem vai usar o ingresso
   holderDocument String? // CPF/RG do portador (para controle na entrada)
 
-  qrCode  String   @unique   // UUID único para validação na catraca/entrada
-  isUsed  Boolean  @default(false)
-  usedAt  DateTime?
-  price   Decimal  @db.Decimal(10, 2) // Preço pago no momento da compra (snapshot)
+  qrCode String    @unique // UUID único para validação na catraca/entrada
+  isUsed Boolean   @default(false)
+  usedAt DateTime?
+  price  Decimal   @db.Decimal(10, 2) // Preço pago no momento da compra (snapshot)
 
   createdAt DateTime @default(now())
 }
@@ -1886,7 +1865,7 @@ model Media {
   url          String
   thumbnailUrl String?
   description  String?
-  duration     Int?      // Duração em segundos (para vídeos)
+  duration     Int? // Duração em segundos (para vídeos)
   isFeatured   Boolean   @default(false)
   views        Int       @default(0)
 
@@ -1911,16 +1890,16 @@ model Media {
 // Pode estar vinculado a split, partida e/ou campanha simultaneamente.
 model EventAlbum {
   id          String  @id @default(uuid())
-  title       String  // Ex: "Final do Split 1 — 12/04/2025", "Entrega de Agasalhos"
+  title       String // Ex: "Final do Split 1 — 12/04/2025", "Entrega de Agasalhos"
   description String?
   coverUrl    String? // Foto de capa do álbum
   isPublished Boolean @default(false)
 
   // Contextos do álbum (todos opcionais — pode ser standalone):
   splitId    String?
-  split      Split?          @relation(fields: [splitId], references: [id])
+  split      Split?           @relation(fields: [splitId], references: [id])
   matchId    String?
-  match      Match?          @relation(fields: [matchId], references: [id])
+  match      Match?           @relation(fields: [matchId], references: [id])
   campaignId String?
   campaign   CharityCampaign? @relation(fields: [campaignId], references: [id])
 
@@ -1937,14 +1916,14 @@ model EventAlbum {
 
 // Patrocinador cadastrado. Pode patrocinar times (TeamSponsor) e/ou a liga inteira (LeagueSponsor).
 model Sponsor {
-  id        String      @id @default(uuid())
-  name      String
-  logoUrl   String?
-  websiteUrl String?
-  level     SponsorLevel @default(SUPPORTER)
-  isActive  Boolean     @default(true)
-  startDate DateTime?
-  endDate   DateTime?
+  id           String       @id @default(uuid())
+  name         String
+  logoUrl      String?
+  websiteUrl   String?
+  level        SponsorLevel @default(SUPPORTER)
+  isActive     Boolean      @default(true)
+  startDate    DateTime?
+  endDate      DateTime?
   contactName  String?
   contactEmail String?
 
@@ -1971,7 +1950,7 @@ model TeamSponsor {
 
   // Temporada do patrocínio (null = prazo indeterminado):
   seasonId String?
-  season   Season?  @relation(fields: [seasonId], references: [id])
+  season   Season? @relation(fields: [seasonId], references: [id])
 
   // ATENÇÃO — ARMADILHA DE NULL no PostgreSQL:
   // @@unique([teamId, sponsorId, seasonId]) NÃO impede duplicatas quando seasonId IS NULL,
@@ -1992,7 +1971,7 @@ model LeagueSponsor {
   level     SponsorLevel
   startDate DateTime
   endDate   DateTime?
-  context   String?      // Escopo: "Fase de Playoffs", "All-Star", null = toda a temporada
+  context   String? // Escopo: "Fase de Playoffs", "All-Star", null = toda a temporada
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2014,20 +1993,54 @@ model LeagueSponsor {
 //   action: "IMPORT_INSTAGRAM_MVP", entity: "MatchMvp", entityId: "<uuid>"
 //   action: "APPROVE_REGISTRATION", entity: "EventRegistration", entityId: "<uuid>"
 model AuditLog {
-  id       String @id @default(uuid())
+  id       String  @id @default(uuid())
   userId   String
-  user     User   @relation(fields: [userId], references: [id])
+  user     User    @relation(fields: [userId], references: [id])
   action   String // Verbo em SNAKE_CASE descrevendo a ação (ex: "DELETE_PLAYER")
   entity   String // Nome do model afetado (ex: "Player", "Match")
   entityId String // ID do registro afetado
-  before   Json?  // Estado anterior (null para criações)
-  after    Json?  // Estado novo (null para deleções)
+  before   Json? // Estado anterior (null para criações)
+  after    Json? // Estado novo (null para deleções)
   ip       String? // IP do usuário no momento da ação
-  metadata Json?   // Dados extras livres (ex: motivo da ação)
+  metadata Json? // Dados extras livres (ex: motivo da ação)
 
   createdAt DateTime @default(now())
 
   @@index([entity, entityId])
   @@index([userId, createdAt])
   @@index([action])
+}
+
+// =============================================================================
+// SEÇÃO 22: PRIVACIDADE E LGPD (Onda 2 - E2.6)
+// =============================================================================
+
+// Registro granular de consentimento do usuário para diferentes finalidades.
+// Atende aos Artigos 7º, 8º e 9º da LGPD.
+model Consent {
+  id        String         @id @default(cuid())
+  userId    String
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  purpose   ConsentPurpose
+  granted   Boolean // true = concedido, false = revogado
+  grantedAt DateTime       @default(now())
+  revokedAt DateTime?
+
+  // Versão da política aceita no momento do consentimento
+  policyVersion String
+
+  // Dados forenses da concessão
+  ipAddress String?
+  userAgent String?
+
+  // Jogador associado caso seja um consentimento parental
+  player Player?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Apenas um registro por usuário e por finalidade. Atualizações mudam o 'granted'.
+  @@unique([userId, purpose])
+  @@index([userId])
+  @@index([purpose, granted])
 }

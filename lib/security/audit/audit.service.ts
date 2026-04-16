@@ -9,6 +9,7 @@ export type AuditLogPayload = {
   before?: Record<string, any> | null;
   after?: Record<string, any> | null;
   metadata?: Record<string, any> | null;
+  ip?: string | null;
 };
 
 /**
