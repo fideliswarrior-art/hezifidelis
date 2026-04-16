@@ -37,6 +37,7 @@ ehthumbs.db
 Thumbs.db
 
 # Configurações Pessoais de Editores (VS Code, IntelliJ)
+.vscode
 .vscode/*
 !.vscode/extensions.json
 .idea/

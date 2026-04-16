@@ -23,6 +23,7 @@
   "homepage": "https://github.com/fideliswarrior-art/hezifidelis#readme",
   "devDependencies": {
     "@tailwindcss/postcss": "^4.2.2",
+    "@types/dompurify": "^3.0.5",
     "@types/node": "^25.5.2",
     "@types/nodemailer": "^8.0.0",
     "@types/pg": "^8.20.0",
@@ -44,6 +45,9 @@
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.37.0",
     "argon2": "^0.44.0",
+    "dompurify": "^3.4.0",
+    "file-type": "^22.0.1",
+    "isomorphic-dompurify": "^3.9.0",
     "jose": "^6.2.2",
     "next": "^16.2.2",
     "nodemailer": "^8.0.4",
