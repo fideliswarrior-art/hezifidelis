@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 import { safeRoute } from "@/lib/security/wrappers/safe-route";
 import { requireAuth } from "@/lib/security/guards/require-auth";
+import { requireEmailVerified } from "@/lib/security/guards/require-email-verified"; // DT-12
+import { verifyTwoFactorToken } from "@/lib/security/auth/two-factor"; // DT-12
 import {
   exportUserData,
   anonymizeUser,
   correctUserData,
 } from "@/lib/services/privacy/data-subject.service";
 import { z } from "zod";
-import { getClientIp } from "@/lib/security/utils/get-ip";
 
 /**
  * ============================================================================
@@ -20,18 +21,7 @@ import { getClientIp } from "@/lib/security/utils/get-ip";
  * ============================================================================
  */
 
-// Schema para validação da anonimização (exige confirmação textual)
-const anonymizeSchema = z.object({
-  reason: z
-    .string()
-    .min(5, "Por favor, indique um motivo com pelo menos 5 caracteres."),
-  confirmation: z.string().refine((val) => val === "CONFIRMAR", {
-    message:
-      "Deve digitar exatamente 'CONFIRMAR' para prosseguir com a exclusão.",
-  }),
-});
-
-// Schema para correção de dados (apenas campos permitidos - Anti Mass-Assignment)
+// Schema para correção de dados (Art. 18, III)
 const updateDataSchema = z.object({
   name: z
     .string()
@@ -44,6 +34,18 @@ const updateDataSchema = z.object({
     .nullable()
     .optional(),
   avatarUrl: z.string().url("URL de avatar inválida.").nullable().optional(),
+});
+
+// Schema para validação da anonimização (DT-12: exigindo 2FA)
+const anonymizeSchema = z.object({
+  reason: z
+    .string()
+    .min(5, "Por favor, indique um motivo com pelo menos 5 caracteres."),
+  confirmation: z.string().refine((val) => val === "CONFIRMAR", {
+    message:
+      "Deve digitar exatamente 'CONFIRMAR' para prosseguir com a exclusão.",
+  }),
+  twoFactorCode: z.string().length(6, "Código 2FA inválido."), // DT-12
 });
 
 /**
@@ -82,7 +84,6 @@ export const PATCH = safeRoute(
     const parsedData = updateDataSchema.parse(body);
 
     // 3. Limpeza do objeto para satisfazer o 'exactOptionalPropertyTypes: true'
-    // Passamos adiante apenas as chaves que realmente têm algum valor (mesmo que seja null)
     const cleanData: {
       name?: string;
       bio?: string | null;
@@ -118,11 +119,26 @@ export const DELETE = safeRoute(
     // 1. Camada C1 - Autenticação
     const session = await requireAuth();
 
-    // 2. Validação de Intenção (Anti-acidente)
-    const body = await req.json().catch(() => ({}));
-    const { reason } = anonymizeSchema.parse(body);
+    // 2. DT-12: Exigir E-mail Verificado para ações irreversíveis
+    await requireEmailVerified(session);
 
-    // 3. Execução do "Hardening" de Privacidade
+    // 3. Validação do body
+    const body = await req.json().catch(() => ({}));
+    const { reason, twoFactorCode } = anonymizeSchema.parse(body);
+
+    // 4. DT-12: Verificação obrigatória do 2FA
+    const is2FaValid = await verifyTwoFactorToken(
+      session.userId,
+      twoFactorCode,
+    );
+    if (!is2FaValid) {
+      return NextResponse.json(
+        { error: "Código de autenticação de dois fatores inválido." },
+        { status: 401 },
+      );
+    }
+
+    // 5. Execução do "Hardening" de Privacidade
     await anonymizeUser(session.userId, reason, session.userId);
 
     return NextResponse.json({

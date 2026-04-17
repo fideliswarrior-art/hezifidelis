@@ -420,6 +420,8 @@ model User {
   // Mecanismo de Invalidação de Sessões (Camada C2)
   tokenVersion Int @default(0)
 
+  player Player? // Relação 1:1 com o perfil de jogador
+
   // --- Relações ---
   orders         Order[]
   articles       Article[]
@@ -507,6 +509,8 @@ model Notification {
 model Season {
   id          String    @id @default(uuid())
   name        String // Ex: "Temporada 2025/26"
+  slug        String    @unique // ★ NOVO — URL amigável: "copa-abril-2026"
+  shortCode   String    @unique // ★ NOVO — Identificador curto: "CAB26" (3-8 chars)
   year        Int
   isActive    Boolean   @default(false)
   startDate   DateTime
@@ -524,6 +528,9 @@ model Season {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  // ★ NOVO — índice adicional para busca rápida por slug
+  @@index([slug])
 }
 
 // Split é cada etapa ou sub-competição dentro de uma Season.
@@ -717,6 +724,10 @@ model Player {
   // Ranking individual — calculado via job agendado
   rankingPoints Float        @default(0)
   worldRanking  Int?
+
+  // Vínculo opcional com a conta de usuário (necessário para auto check-in e painel do jogador)
+  userId String? @unique
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   // --- Relações ---
   socialLinks      PlayerSocialLink[]

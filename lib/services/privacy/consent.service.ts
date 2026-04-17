@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { ConsentPurpose } from "@prisma/client";
 import { createAuditLog } from "@/lib/security/audit/audit.service";
 import { AUDIT_EVENTS } from "@/lib/security/audit/audit.events";
+import { NotFoundError, ConsentError } from "@/lib/security/utils/errors"; // DT-10: Erros centralizados
 
 /**
  * ============================================================================
@@ -17,29 +18,6 @@ import { AUDIT_EVENTS } from "@/lib/security/audit/audit.events";
  * 3. Auditoria Imutável: Cada mudança gera um log forense com IP e versão da política.
  * ============================================================================
  */
-
-export class ConsentError extends Error {
-  public readonly statusCode = 422; // Integrado ao safe-route.ts genérico
-
-  constructor(
-    message: string,
-    public readonly code: string = "CONSENT_ERROR",
-  ) {
-    super(message);
-    this.name = "ConsentError";
-  }
-}
-
-export class NotFoundError extends Error {
-  public readonly statusCode = 404; // Integrado ao safe-route.ts genérico
-
-  constructor(
-    message = "Consentimento não encontrado para este usuário e finalidade.",
-  ) {
-    super(message);
-    this.name = "NotFoundError";
-  }
-}
 
 /**
  * Concede ou re-concede um consentimento para uma finalidade específica.
@@ -57,7 +35,6 @@ export async function grantConsent(
   });
 
   // 2. Upsert: Cria se não existir, atualiza se já existir
-  // O TypeScript estrito exige `null` em vez de `undefined` para campos opcionais no Prisma
   const consent = await db.consent.upsert({
     where: { userId_purpose: { userId, purpose } },
     update: {
@@ -78,10 +55,10 @@ export async function grantConsent(
     },
   });
 
-  // 3. Auditoria Forense
+  // 3. Auditoria Forense (DT-11: Removido 'as any')
   await createAuditLog({
     userId,
-    action: AUDIT_EVENTS.CONSENT_GRANT as any,
+    action: AUDIT_EVENTS.CONSENT_GRANT,
     entity: "Consent",
     entityId: consent.id,
     before: previous
@@ -116,7 +93,9 @@ export async function revokeConsent(
   });
 
   if (!existing) {
-    throw new NotFoundError();
+    throw new NotFoundError(
+      "Consentimento não encontrado para este usuário e finalidade.",
+    );
   }
 
   // Se já está revogado, retornamos silenciosamente (Idempotência)
@@ -133,15 +112,15 @@ export async function revokeConsent(
     },
   });
 
-  // 3. Auditoria Forense
+  // 3. Auditoria Forense (DT-11: Removido 'as any')
   await createAuditLog({
     userId,
-    action: AUDIT_EVENTS.CONSENT_REVOKE as any,
+    action: AUDIT_EVENTS.CONSENT_REVOKE,
     entity: "Consent",
     entityId: updated.id,
     before: { granted: true },
     after: { granted: false },
-    ip: ipAddress || null,
+    ip: ipAddress ?? null,
     metadata: { purpose },
   });
 

@@ -2,6 +2,8 @@ import { db } from "@/lib/db";
 import { createAuditLog } from "@/lib/security/audit/audit.service";
 import { AUDIT_EVENTS } from "@/lib/security/audit/audit.events";
 import { randomUUID } from "crypto";
+import { decryptField } from "@/lib/security/crypto/encryption"; // DT-09: Import para descriptografia
+import { NotFoundError, DataSubjectError } from "@/lib/security/utils/errors"; // DT-10: Erros centralizados
 
 /**
  * ============================================================================
@@ -17,29 +19,10 @@ import { randomUUID } from "crypto";
  * disso, embaralhamos os dados identificáveis (PII) permanentemente.
  * 2. Invalidação Imediata: Ao anonimizar, o `tokenVersion` é incrementado,
  * derrubando qualquer sessão JWT ativa na Camada C2.
+ * 3. Inteligibilidade de Dados: Na exportação, campos criptografados em repouso
+ * são descriptografados para o titular (DT-09).
  * ============================================================================
  */
-
-export class DataSubjectError extends Error {
-  public readonly statusCode = 422;
-
-  constructor(
-    message: string,
-    public readonly code: string = "DATA_SUBJECT_ERROR",
-  ) {
-    super(message);
-    this.name = "DataSubjectError";
-  }
-}
-
-export class NotFoundError extends Error {
-  public readonly statusCode = 404;
-
-  constructor(message = "Usuário não encontrado.") {
-    super(message);
-    this.name = "NotFoundError";
-  }
-}
 
 /**
  * Exporta todos os dados vinculados a um usuário (Portabilidade).
@@ -63,22 +46,36 @@ export async function exportUserData(userId: string) {
   });
 
   if (!user) {
-    throw new NotFoundError();
+    throw new NotFoundError("Usuário não encontrado.");
   }
 
   // 2. Higienização de Segurança (Data Sanitization)
   // Removemos dados que não devem ser exportados (hashes, segredos, etc.)
   const { password, twoFactorSecret, ...safeUser } = user;
 
-  // Tratamento especial para Tickets: removemos o QR Code bruto se não foi usado
-  // para evitar que a exportação seja usada para roubar o ingresso
-  const sanitizedTickets = safeUser.tickets.map((ticket) => {
-    if (!ticket.isUsed) {
-      const { qrCode, ...safeTicket } = ticket;
-      return { ...safeTicket, qrCode: "[OCULTO_POR_SEGURANCA]" };
-    }
-    return ticket;
-  });
+  // DT-09: Descriptografar campos AES-256 (como holderDocument) para exportação inteligível
+  // Usamos Promise.all para processar os tickets de forma eficiente
+  const sanitizedTickets = await Promise.all(
+    safeUser.tickets.map(async (ticket) => {
+      // Descriptografa o documento do titular (se houver)
+      const decryptedDoc = await decryptField(ticket.holderDocument);
+
+      if (!ticket.isUsed) {
+        // Se não usado, mascaramos o QR Code por segurança contra roubo físico
+        const { qrCode, ...safeTicket } = ticket;
+        return {
+          ...safeTicket,
+          holderDocument: decryptedDoc,
+          qrCode: "[OCULTO_POR_SEGURANCA]",
+        };
+      }
+
+      return {
+        ...ticket,
+        holderDocument: decryptedDoc,
+      };
+    }),
+  );
 
   const exportPayload = {
     ...safeUser,
@@ -95,10 +92,10 @@ export async function exportUserData(userId: string) {
     }
   }
 
-  // 4. Auditoria
+  // 4. Auditoria (DT-11: Removido 'as any' devido à correção na assinatura do AuditLog)
   await createAuditLog({
     userId,
-    action: AUDIT_EVENTS.DATA_EXPORT as any,
+    action: AUDIT_EVENTS.DATA_EXPORT,
     entity: "User",
     entityId: userId,
     metadata: { entityCount },
@@ -116,7 +113,7 @@ export async function anonymizeUser(
   actorId: string,
 ) {
   const user = await db.user.findUnique({ where: { id: userId } });
-  if (!user) throw new NotFoundError();
+  if (!user) throw new NotFoundError("Usuário não encontrado.");
 
   if (!user.isActive && user.name === "[ANONIMIZADO]") {
     throw new DataSubjectError(
@@ -168,16 +165,12 @@ export async function anonymizeUser(
         content: "[conteúdo removido a pedido do titular]",
       },
     });
-
-    // NOTA: AuditLogs, MatchEvents e Pedidos Financeiros NÃO são anonimizados
-    // ou excluídos, pois o Art. 16 da LGPD permite a retenção para cumprimento
-    // de obrigação legal ou regulatória.
   });
 
-  // 5. Auditoria (Usamos actorId caso seja um SUPER_ADMIN forçando a anonimização)
+  // 5. Auditoria (DT-11: Removido 'as any')
   await createAuditLog({
     userId: actorId,
-    action: AUDIT_EVENTS.USER_ANONYMIZE as any,
+    action: AUDIT_EVENTS.USER_ANONYMIZE,
     entity: "User",
     entityId: userId,
     metadata: { reason, targetUserId: userId },
@@ -194,7 +187,7 @@ export async function correctUserData(
   data: { name?: string; bio?: string | null; avatarUrl?: string | null },
 ) {
   const user = await db.user.findUnique({ where: { id: userId } });
-  if (!user) throw new NotFoundError();
+  if (!user) throw new NotFoundError("Usuário não encontrado.");
 
   // Removemos chaves undefined para não sobescrever com null acidentalmente
   const updateData = Object.fromEntries(
@@ -210,9 +203,10 @@ export async function correctUserData(
     data: updateData,
   });
 
+  // DT-11: Removido 'as any'
   await createAuditLog({
     userId,
-    action: AUDIT_EVENTS.USER_DATA_CORRECT as any,
+    action: AUDIT_EVENTS.USER_DATA_CORRECT,
     entity: "User",
     entityId: userId,
     before: {
