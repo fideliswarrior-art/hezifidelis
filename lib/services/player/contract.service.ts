@@ -1,29 +1,38 @@
 /**
  * ============================================================================
- * HEZI TECH — SERVIÇO DE CONTRATOS (Onda 3 - E3.2)
+ * HEZI TECH — SERVIÇO DE CONTRATOS (Onda 3 - E3.2 Redesign)
  * ============================================================================
  * Arquivo: lib/services/player/contract.service.ts
  * Camada de Defesa: C3 (RBAC) + C4 (ABAC) + C6 (Workflow) + C12 (Auditoria)
- * * RESPONSABILIDADE:
- * Gerenciar o ciclo de vida dos contratos de jogadores. A regra de ouro
- * deste domínio é a INVARIANTE DE ATOMICIDADE: Um jogador pode ter no
- * máximo 1 (um) contrato ativo simultaneamente (onde endDate IS NULL).
- * * Todas as operações de transferência ou fechamento são envelopadas em
- * transações atômicas para prevenir a geração de contratos duplicados em
- * casos de concorrência.
+ *
+ * INVARIANTE DE DOMÍNIO:
+ * Um jogador possui no máximo 1 contrato ativo (endDate IS NULL) por Split.
+ * Jogadores podem ter contratos simultâneos em Splits diferentes.
+ *
+ * ATOMICIDADE:
+ * Toda mutação (create, transfer, close) roda em $transaction.
+ * Toda auditoria usa tx.auditLog.create() DENTRO da transação.
+ * Se a transação falha, dados E logs revertem juntos.
+ *
+ * REGRAS DE STATUS:
+ *   - createInitialContract: FREE_AGENT → ACTIVE
+ *   - transferPlayer: mantém ACTIVE
+ *   - closeContract(RETIRED): fecha TODOS os contratos, status → RETIRED
+ *   - closeContract(RELEASED): fecha 1 contrato, status → FREE_AGENT
+ *     apenas se não houver outros contratos ativos em outros Splits
+ *   - closeContract(INJURED_LONG): fecha 1 contrato, status → INJURED
  * ============================================================================
  */
 
 import { db } from "@/lib/db";
-import type { Prisma, PlayerContract } from "@prisma/client";
-import { PlayerStatus } from "@prisma/client";
-import { createAuditLog } from "@/lib/security/audit/audit.service";
+import { Prisma, PlayerStatus, type PlayerContract } from "@prisma/client";
 import { AUDIT_EVENTS } from "@/lib/security/audit/audit.events";
 import { NotFoundError } from "@/lib/security/utils/errors";
 import type { ActorContext } from "@/lib/services/league/season.service";
+import { generateContractCode } from "@/lib/services/player/contract-code";
 
 // ============================================================================
-// CLASSES DE ERRO
+// CLASSES DE ERRO E TIPOS
 // ============================================================================
 
 export class ContractConflictError extends Error {
@@ -37,20 +46,18 @@ export class ContractConflictError extends Error {
   }
 }
 
-// ============================================================================
-// TIPOS DE ENTRADA (Mapeados do validations.roster.ts)
-// ============================================================================
-
 export interface CreateInitialContractInput {
   teamId: string;
+  splitId: string;
   jerseyNumber: number;
-  startDate: string; // ISO 8601
+  startDate: string;
 }
 
 export interface TransferPlayerInput {
   newTeamId: string;
+  splitId: string;
   jerseyNumber: number;
-  startDate: string; // ISO 8601
+  startDate: string;
   transferFee?: number;
 }
 
@@ -63,7 +70,7 @@ export type CloseContractReason = "RETIRED" | "RELEASED" | "INJURED_LONG";
 async function assertTeamActive(teamId: string) {
   const team = await db.team.findUnique({
     where: { id: teamId },
-    select: { id: true, name: true, isActive: true },
+    select: { id: true, name: true, shortName: true, isActive: true },
   });
   if (!team) throw new NotFoundError("Time não encontrado.");
   if (!team.isActive) {
@@ -78,11 +85,7 @@ async function assertJerseyNumberAvailable(
   jerseyNumber: number,
 ) {
   const conflict = await tx.playerContract.findFirst({
-    where: {
-      teamId,
-      jerseyNumber,
-      endDate: null,
-    },
+    where: { teamId, jerseyNumber, endDate: null },
     select: { id: true },
   });
 
@@ -93,13 +96,45 @@ async function assertJerseyNumberAvailable(
   }
 }
 
+/**
+ * Gera código de contrato com retry para colisão de entropia.
+ * Máximo 3 tentativas antes de abortar.
+ */
+async function generateUniqueContractCode(
+  tx: Prisma.TransactionClient,
+  input: {
+    teamShortName: string | null;
+    teamName: string;
+    playerFirstName: string;
+    playerLastName: string;
+    jerseyNumber: number;
+    seasonShortCode: string;
+  },
+): Promise<string> {
+  let attempts = 0;
+  while (attempts < 3) {
+    const code = generateContractCode(input);
+    const existing = await tx.playerContract.findUnique({
+      where: { contractCode: code },
+    });
+    if (!existing) return code;
+    attempts++;
+  }
+  throw new ContractConflictError(
+    "Falha interna ao gerar código único de contrato. Tente novamente.",
+  );
+}
+
 // ============================================================================
 // 1. CREATE INITIAL CONTRACT
 // ============================================================================
 
 /**
- * Cria o primeiro contrato (ou novo contrato após um período sem clube).
- * Bloqueia se o jogador já possuir um contrato ativo.
+ * Cria o primeiro contrato (ou novo contrato após período sem clube)
+ * dentro de um Split específico.
+ *
+ * Bloqueia se o jogador já possuir contrato ativo NESTE Split.
+ * Contratos em outros Splits não interferem.
  */
 export async function createInitialContract(
   playerId: string,
@@ -115,35 +150,53 @@ export async function createInitialContract(
     );
   }
 
-  await assertTeamActive(input.teamId);
+  const team = await assertTeamActive(input.teamId);
+  const split = await db.split.findUnique({
+    where: { id: input.splitId },
+    include: { season: { select: { shortCode: true } } },
+  });
+
+  if (!split) throw new NotFoundError("Split não encontrado.");
 
   const createdContract = await db.$transaction(async (tx) => {
-    // 1. Verifica invariante: O jogador já possui contrato ativo?
+    // 1. Invariante por Split: já possui contrato ativo neste torneio?
     const existingActive = await tx.playerContract.findFirst({
-      where: { playerId, endDate: null },
+      where: { playerId, splitId: input.splitId, endDate: null },
     });
 
     if (existingActive) {
       throw new ContractConflictError(
-        "O jogador já possui um contrato ativo. Utilize a operação de Transferência.",
+        "O jogador já possui um contrato ativo neste Split. Utilize a operação de Transferência.",
       );
     }
 
-    // 2. Verifica disponibilidade do número da camisa no time destino
+    // 2. Camisa disponível no time (escopo global)
     await assertJerseyNumberAvailable(tx, input.teamId, input.jerseyNumber);
 
-    // 3. Cria o novo contrato
+    // 3. Código legível único
+    const contractCode = await generateUniqueContractCode(tx, {
+      teamShortName: team.shortName,
+      teamName: team.name,
+      playerFirstName: player.firstName,
+      playerLastName: player.lastName,
+      jerseyNumber: input.jerseyNumber,
+      seasonShortCode: split.season.shortCode,
+    });
+
+    // 4. Cria o contrato
     const contract = await tx.playerContract.create({
       data: {
+        contractCode,
         playerId,
         teamId: input.teamId,
+        splitId: input.splitId,
         jerseyNumber: input.jerseyNumber,
         startDate: new Date(input.startDate),
-        endDate: null, // Contrato Ativo
+        endDate: null,
       },
     });
 
-    // 4. Atualiza o status do jogador (caso estivesse como FREE_AGENT)
+    // 5. Promove para ACTIVE se estava FREE_AGENT
     if (player.status === PlayerStatus.FREE_AGENT) {
       await tx.player.update({
         where: { id: playerId },
@@ -151,34 +204,39 @@ export async function createInitialContract(
       });
     }
 
-    return contract;
-  });
+    // 6. Auditoria atômica (tx.auditLog.create)
+    await tx.auditLog.create({
+      data: {
+        userId: actor.userId,
+        action: AUDIT_EVENTS.CONTRACT_CREATE,
+        entity: "PlayerContract",
+        entityId: contract.id,
+        before: Prisma.DbNull,
+        after: {
+          contractCode,
+          playerId,
+          teamId: input.teamId,
+          splitId: input.splitId,
+          jerseyNumber: input.jerseyNumber,
+          startDate: contract.startDate.toISOString(),
+        },
+        ip: actor.ip ?? null,
+      },
+    });
 
-  await createAuditLog({
-    userId: actor.userId,
-    action: AUDIT_EVENTS.CONTRACT_CREATE,
-    entity: "PlayerContract",
-    entityId: createdContract.id,
-    before: null,
-    after: {
-      playerId,
-      teamId: input.teamId,
-      jerseyNumber: input.jerseyNumber,
-      startDate: createdContract.startDate.toISOString(),
-    },
-    ip: actor.ip ?? null,
+    return contract;
   });
 
   return createdContract;
 }
 
 // ============================================================================
-// 2. TRANSFER PLAYER (A OPERAÇÃO MAIS CRÍTICA E ATÔMICA)
+// 2. TRANSFER PLAYER (ATÔMICO — MESMO SPLIT)
 // ============================================================================
 
 /**
- * Transfere o jogador de um time para outro.
- * Fecha o contrato anterior (endDate = now) e abre o novo atomicamente.
+ * Transfere o jogador de um time para outro dentro do MESMO Split.
+ * Fecha o contrato anterior e abre novo atomicamente.
  */
 export async function transferPlayer(
   playerId: string,
@@ -194,17 +252,23 @@ export async function transferPlayer(
     );
   }
 
-  await assertTeamActive(input.newTeamId);
+  const newTeam = await assertTeamActive(input.newTeamId);
+  const split = await db.split.findUnique({
+    where: { id: input.splitId },
+    include: { season: { select: { shortCode: true } } },
+  });
 
-  const result = await db.$transaction(async (tx) => {
-    // 1. Identifica e bloqueia o contrato atual para update
+  if (!split) throw new NotFoundError("Split não encontrado.");
+
+  const newContract = await db.$transaction(async (tx) => {
+    // 1. Contrato atual no mesmo Split
     const currentContract = await tx.playerContract.findFirst({
-      where: { playerId, endDate: null },
+      where: { playerId, splitId: input.splitId, endDate: null },
     });
 
     if (!currentContract) {
       throw new NotFoundError(
-        "Nenhum contrato ativo encontrado para este jogador. Utilize a operação de Criação de Contrato Inicial.",
+        "Nenhum contrato ativo encontrado para este jogador neste Split.",
       );
     }
 
@@ -214,20 +278,33 @@ export async function transferPlayer(
       );
     }
 
-    // 2. Verifica a disponibilidade do número da camisa no novo time
+    // 2. Camisa disponível no novo time
     await assertJerseyNumberAvailable(tx, input.newTeamId, input.jerseyNumber);
 
     // 3. Encerra o contrato anterior
+    const now = new Date();
     const closedContract = await tx.playerContract.update({
       where: { id: currentContract.id },
-      data: { endDate: new Date() },
+      data: { endDate: now },
     });
 
-    // 4. Cria o novo contrato
-    const newContract = await tx.playerContract.create({
+    // 4. Novo código legível
+    const contractCode = await generateUniqueContractCode(tx, {
+      teamShortName: newTeam.shortName,
+      teamName: newTeam.name,
+      playerFirstName: player.firstName,
+      playerLastName: player.lastName,
+      jerseyNumber: input.jerseyNumber,
+      seasonShortCode: split.season.shortCode,
+    });
+
+    // 5. Cria o novo contrato
+    const created = await tx.playerContract.create({
       data: {
+        contractCode,
         playerId,
         teamId: input.newTeamId,
+        splitId: input.splitId,
         jerseyNumber: input.jerseyNumber,
         startDate: new Date(input.startDate),
         endDate: null,
@@ -235,7 +312,7 @@ export async function transferPlayer(
       },
     });
 
-    // 5. Garante que o status seja ACTIVE
+    // 6. Garante ACTIVE
     if (player.status !== PlayerStatus.ACTIVE) {
       await tx.player.update({
         where: { id: playerId },
@@ -243,57 +320,66 @@ export async function transferPlayer(
       });
     }
 
-    return { oldContract: closedContract, newContract };
+    // 7. Auditoria atômica (3 eventos)
+    await tx.auditLog.create({
+      data: {
+        userId: actor.userId,
+        action: AUDIT_EVENTS.CONTRACT_CLOSE,
+        entity: "PlayerContract",
+        entityId: closedContract.id,
+        before: { endDate: null },
+        after: { endDate: now.toISOString() },
+        ip: actor.ip ?? null,
+      },
+    });
+
+    await tx.auditLog.create({
+      data: {
+        userId: actor.userId,
+        action: AUDIT_EVENTS.CONTRACT_CREATE,
+        entity: "PlayerContract",
+        entityId: created.id,
+        before: Prisma.DbNull,
+        after: {
+          contractCode,
+          playerId,
+          teamId: created.teamId,
+          splitId: created.splitId,
+          jerseyNumber: created.jerseyNumber,
+          startDate: created.startDate.toISOString(),
+        },
+        ip: actor.ip ?? null,
+      },
+    });
+
+    await tx.auditLog.create({
+      data: {
+        userId: actor.userId,
+        action: AUDIT_EVENTS.PLAYER_TRANSFER,
+        entity: "Player",
+        entityId: playerId,
+        before: {
+          teamId: closedContract.teamId,
+          jerseyNumber: closedContract.jerseyNumber,
+        },
+        after: {
+          teamId: created.teamId,
+          jerseyNumber: created.jerseyNumber,
+        },
+        ip: actor.ip ?? null,
+        metadata: {
+          oldContractId: closedContract.id,
+          newContractId: created.id,
+          splitId: input.splitId,
+          transferFee: input.transferFee,
+        },
+      },
+    });
+
+    return created;
   });
 
-  // Dispara múltiplos eventos de auditoria após a transação
-  await createAuditLog({
-    userId: actor.userId,
-    action: AUDIT_EVENTS.CONTRACT_CLOSE,
-    entity: "PlayerContract",
-    entityId: result.oldContract.id,
-    before: { endDate: null },
-    after: { endDate: result.oldContract.endDate?.toISOString() },
-    ip: actor.ip ?? null,
-  });
-
-  await createAuditLog({
-    userId: actor.userId,
-    action: AUDIT_EVENTS.CONTRACT_CREATE,
-    entity: "PlayerContract",
-    entityId: result.newContract.id,
-    before: null,
-    after: {
-      playerId,
-      teamId: result.newContract.teamId,
-      jerseyNumber: result.newContract.jerseyNumber,
-      startDate: result.newContract.startDate.toISOString(),
-    },
-    ip: actor.ip ?? null,
-  });
-
-  await createAuditLog({
-    userId: actor.userId,
-    action: AUDIT_EVENTS.PLAYER_TRANSFER,
-    entity: "Player",
-    entityId: playerId,
-    before: {
-      teamId: result.oldContract.teamId,
-      jerseyNumber: result.oldContract.jerseyNumber,
-    },
-    after: {
-      teamId: result.newContract.teamId,
-      jerseyNumber: result.newContract.jerseyNumber,
-    },
-    ip: actor.ip ?? null,
-    metadata: {
-      oldContractId: result.oldContract.id,
-      newContractId: result.newContract.id,
-      transferFee: input.transferFee,
-    },
-  });
-
-  return result.newContract;
+  return newContract;
 }
 
 // ============================================================================
@@ -301,7 +387,16 @@ export async function transferPlayer(
 // ============================================================================
 
 /**
- * Encerra o contrato vigente sem abrir um novo (ex: dispensa ou aposentadoria).
+ * Encerra um contrato sem abrir novo (dispensa, aposentadoria ou lesão).
+ *
+ * REGRAS DE SINCRONIZAÇÃO DE STATUS (multi-split):
+ *   RETIRED  → Fecha TODOS os contratos ativos do jogador (todos os Splits).
+ *              Status → RETIRED (terminal).
+ *   RELEASED → Fecha apenas ESTE contrato.
+ *              Status → FREE_AGENT somente se não houver outros contratos ativos.
+ *              Status → mantém ACTIVE se houver contratos em outros Splits.
+ *   INJURED_LONG → Fecha apenas ESTE contrato.
+ *              Status → INJURED.
  */
 export async function closeContract(
   contractId: string,
@@ -319,52 +414,108 @@ export async function closeContract(
   }
 
   const closedContract = await db.$transaction(async (tx) => {
-    // 1. Encerra o contrato
+    const now = new Date();
+
+    // 1. Encerra o contrato alvo
     const updated = await tx.playerContract.update({
       where: { id: contractId },
-      data: { endDate: new Date(), notes: `Encerrado motivo: ${reason}` },
+      data: { endDate: now, notes: `Encerrado motivo: ${reason}` },
     });
 
-    // 2. Avalia e atualiza o novo status do jogador
+    // 2. Se RETIRED: fecha TODOS os outros contratos ativos
+    if (reason === "RETIRED") {
+      const otherActive = await tx.playerContract.findMany({
+        where: {
+          playerId: currentContract.playerId,
+          endDate: null,
+          NOT: { id: contractId },
+        },
+      });
+
+      for (const contract of otherActive) {
+        await tx.playerContract.update({
+          where: { id: contract.id },
+          data: {
+            endDate: now,
+            notes: "Fechamento automático por aposentadoria do jogador.",
+          },
+        });
+
+        await tx.auditLog.create({
+          data: {
+            userId: actor.userId,
+            action: AUDIT_EVENTS.CONTRACT_CLOSE,
+            entity: "PlayerContract",
+            entityId: contract.id,
+            before: { endDate: null },
+            after: { endDate: now.toISOString() },
+            ip: actor.ip ?? null,
+            metadata: {
+              reason: "Fechamento automático por aposentadoria.",
+              splitId: contract.splitId,
+            },
+          },
+        });
+      }
+    }
+
+    // 3. Determina novo status do jogador
     let newStatus = currentContract.player.status;
 
     if (reason === "RETIRED") {
       newStatus = PlayerStatus.RETIRED;
     } else if (reason === "RELEASED") {
-      newStatus = PlayerStatus.FREE_AGENT;
+      // Verifica se há outros contratos ativos em outros Splits
+      const remainingActive = await tx.playerContract.count({
+        where: {
+          playerId: currentContract.playerId,
+          endDate: null,
+          NOT: { id: contractId },
+        },
+      });
+
+      newStatus =
+        remainingActive > 0 ? PlayerStatus.ACTIVE : PlayerStatus.FREE_AGENT;
+    } else if (reason === "INJURED_LONG") {
+      newStatus = PlayerStatus.INJURED;
     }
 
+    // 4. Atualiza status se mudou
     if (newStatus !== currentContract.player.status) {
       await tx.player.update({
         where: { id: currentContract.playerId },
         data: { status: newStatus },
       });
 
-      // Auditoria paralela pela alteração do status
-      await createAuditLog({
-        userId: actor.userId,
-        action: AUDIT_EVENTS.PLAYER_STATUS_CHANGE,
-        entity: "Player",
-        entityId: currentContract.playerId,
-        before: { status: currentContract.player.status },
-        after: { status: newStatus },
-        ip: actor.ip ?? null,
-        metadata: { reason: `Contrato encerrado. Motivo: ${reason}` },
+      await tx.auditLog.create({
+        data: {
+          userId: actor.userId,
+          action: AUDIT_EVENTS.PLAYER_STATUS_CHANGE,
+          entity: "Player",
+          entityId: currentContract.playerId,
+          before: { status: currentContract.player.status },
+          after: { status: newStatus },
+          ip: actor.ip ?? null,
+          metadata: { reason: `Contrato encerrado. Motivo: ${reason}` },
+        },
       });
     }
 
-    return updated;
-  });
+    // 5. Audit do contrato principal
+    await tx.auditLog.create({
+      data: {
+        userId: actor.userId,
+        action: AUDIT_EVENTS.CONTRACT_CLOSE,
+        entity: "PlayerContract",
+        entityId: contractId,
+        before: { endDate: null },
+        after: { endDate: now.toISOString() },
+        ip: actor.ip ?? null,
+        metadata: { reason },
+      },
+    });
 
-  await createAuditLog({
-    userId: actor.userId,
-    action: AUDIT_EVENTS.CONTRACT_CLOSE,
-    entity: "PlayerContract",
-    entityId: contractId,
-    before: { endDate: null },
-    after: { endDate: closedContract.endDate?.toISOString() },
-    ip: actor.ip ?? null,
-    metadata: { reason },
+    return updated;
   });
 
   return closedContract;
@@ -374,21 +525,45 @@ export async function closeContract(
 // 4. READ (Consultas)
 // ============================================================================
 
-export async function getCurrentContract(playerId: string) {
+/**
+ * Contrato ativo do jogador em um Split específico.
+ * Usado em: validação de elenco (E3.3), check-in (E3.3.5).
+ */
+export async function getCurrentContract(playerId: string, splitId: string) {
   return db.playerContract.findFirst({
-    where: { playerId, endDate: null },
+    where: { playerId, splitId, endDate: null },
     include: {
       team: { select: { id: true, name: true, slug: true, logoUrl: true } },
+      split: { select: { id: true, name: true } },
     },
   });
 }
 
+/**
+ * Todos os contratos ativos do jogador (todos os Splits).
+ * Usado em: painel admin, aposentadoria, visão geral.
+ */
+export async function getAllActiveContracts(playerId: string) {
+  return db.playerContract.findMany({
+    where: { playerId, endDate: null },
+    include: {
+      team: { select: { id: true, name: true, slug: true, logoUrl: true } },
+      split: { select: { id: true, name: true } },
+    },
+  });
+}
+
+/**
+ * Histórico completo de contratos do jogador (todos os Splits, ativos e encerrados).
+ * Usado em: perfil do jogador, timeline de carreira.
+ */
 export async function getContractHistory(playerId: string) {
   return db.playerContract.findMany({
     where: { playerId },
     orderBy: { startDate: "desc" },
     include: {
       team: { select: { id: true, name: true, slug: true, logoUrl: true } },
+      split: { select: { id: true, name: true } },
     },
   });
 }

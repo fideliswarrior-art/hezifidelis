@@ -4,11 +4,20 @@
  * ============================================================================
  * Arquivo: lib/services/player/player.service.ts
  * Camada de Defesa: C3 (RBAC) + C6 (State Machine) + C12 (Auditoria) + C13 (LGPD)
+ *
+ * REGRAS CRÍTICAS:
+ *   1. Jogador nasce com status FREE_AGENT (sem contrato = sem time).
+ *      O createInitialContract promove para ACTIVE.
+ *   2. Aposentadoria fecha TODOS os contratos ativos (multi-split).
+ *   3. AuditLog de operações transacionais usa tx.auditLog.create()
+ *      diretamente para garantir atomicidade (§0.4 da Finalização).
+ *   4. LGPD Art. 8º: menores sem parentalConsentId não aparecem
+ *      em endpoints públicos (retorna null → 404 na rota).
  * ============================================================================
  */
 
 import { db } from "@/lib/db";
-import type { Prisma, Player, Position } from "@prisma/client"; // Position importado diretamente
+import type { Prisma, Player, Position } from "@prisma/client";
 import { PlayerStatus } from "@prisma/client";
 import { createAuditLog } from "@/lib/security/audit/audit.service";
 import { AUDIT_EVENTS } from "@/lib/security/audit/audit.events";
@@ -57,7 +66,7 @@ async function assertSlugAvailable(
   }
 }
 
-// Helper LGPD: Calcula idade para mascaramento
+/** LGPD Art. 8º: Calcula se o jogador é menor de 18 anos. */
 function isMinor(dateOfBirth: Date | null): boolean {
   if (!dateOfBirth) return false;
   const ageDifMs = Date.now() - dateOfBirth.getTime();
@@ -80,7 +89,7 @@ export async function createPlayer(
     lastName: input.lastName,
     slug: input.slug,
     position: input.position,
-    status: PlayerStatus.ACTIVE, // Status inicial padrão
+    status: PlayerStatus.FREE_AGENT, // ★ DT-002: Jogador sem contrato = FREE_AGENT
   };
 
   if (input.nickname !== undefined) data.nickname = input.nickname;
@@ -168,9 +177,19 @@ export async function updatePlayer(
 }
 
 // ============================================================================
-// 3. UPDATE STATUS (Máquina de Estado + Regra de Aposentadoria)
+// 3. UPDATE STATUS (Máquina de Estado + Aposentadoria Multi-Split)
 // ============================================================================
 
+/**
+ * Atualiza o status do jogador com validação de state machine.
+ *
+ * APOSENTADORIA: Fecha TODOS os contratos ativos (um por Split)
+ * atomicamente. Com contratos por Split, um jogador pode ter N
+ * contratos simultâneos — todos devem ser encerrados.
+ *
+ * ATOMICIDADE: Toda operação (status + contratos + auditoria)
+ * roda dentro de uma única $transaction via tx.auditLog.create().
+ */
 export async function updatePlayerStatus(
   id: string,
   input: UpdatePlayerStatusInput,
@@ -187,48 +206,59 @@ export async function updatePlayerStatus(
   // 1. Valida a transição contra a PlayerStatusMachine
   validateTransition("Player", current.status, input.status);
 
-  // 2. Executa a transição em Transaction (cobre fechamento de contratos)
+  // 2. Transação atômica: status + contratos + auditoria
   const updated = await db.$transaction(async (tx) => {
     const updatedPlayer = await tx.player.update({
       where: { id },
       data: { status: input.status },
     });
 
-    const activeContract = current.contracts[0];
+    // Aposentadoria: fecha TODOS os contratos ativos (multi-split)
+    if (input.status === PlayerStatus.RETIRED && current.contracts.length > 0) {
+      const now = new Date();
 
-    // Se o jogador aposentou E tem um contrato ativo, fecha o contrato automaticamente
-    if (input.status === PlayerStatus.RETIRED && activeContract) {
-      await tx.playerContract.update({
-        where: { id: activeContract.id },
-        data: { endDate: new Date() },
-      });
+      for (const contract of current.contracts) {
+        await tx.playerContract.update({
+          where: { id: contract.id },
+          data: { endDate: now },
+        });
 
-      await createAuditLog({
-        userId: actor.userId,
-        action: AUDIT_EVENTS.CONTRACT_CLOSE,
-        entity: "PlayerContract",
-        entityId: activeContract.id,
-        before: { endDate: null },
-        after: { endDate: new Date().toISOString() },
-        ip: actor.ip ?? null,
-        metadata: {
-          reason: "Fechamento automático por aposentadoria do jogador.",
-        },
-      });
+        await tx.auditLog.create({
+          data: {
+            userId: actor.userId,
+            action: AUDIT_EVENTS.CONTRACT_CLOSE,
+            entity: "PlayerContract",
+            entityId: contract.id,
+            before: { endDate: null },
+            after: { endDate: now.toISOString() },
+            ip: actor.ip ?? null,
+            metadata: {
+              reason: "Fechamento automático por aposentadoria do jogador.",
+              splitId: contract.splitId,
+            },
+          },
+        });
+      }
     }
 
-    return updatedPlayer;
-  });
+    // AuditLog do status dentro da mesma transação
+    await tx.auditLog.create({
+      data: {
+        userId: actor.userId,
+        action: AUDIT_EVENTS.PLAYER_STATUS_CHANGE,
+        entity: "Player",
+        entityId: id,
+        before: { status: current.status },
+        after: { status: updatedPlayer.status },
+        ip: actor.ip ?? null,
+        metadata: {
+          reason: input.reason,
+          contractsClosed: current.contracts.length,
+        },
+      },
+    });
 
-  await createAuditLog({
-    userId: actor.userId,
-    action: AUDIT_EVENTS.PLAYER_STATUS_CHANGE,
-    entity: "Player",
-    entityId: id,
-    before: { status: current.status },
-    after: { status: updated.status },
-    ip: actor.ip ?? null,
-    metadata: { reason: input.reason },
+    return updatedPlayer;
   });
 
   return updated;
@@ -250,6 +280,7 @@ export async function getPlayerById(id: string) {
         orderBy: { startDate: "desc" },
         include: {
           team: { select: { id: true, name: true, slug: true, logoUrl: true } },
+          split: { select: { id: true, name: true } },
         },
       },
       splitStats: { include: { split: { select: { id: true, name: true } } } },
@@ -262,8 +293,14 @@ export async function getPlayerById(id: string) {
 }
 
 /**
- * Retorna visão Pública. Aplica Art. 8º da LGPD para mascarar a data de
- * nascimento se o jogador for menor de idade e não possuir consentimento.
+ * Retorna visão Pública.
+ *
+ * LGPD Art. 8º (Menores):
+ *   - Se dateOfBirth indica menor de 18 E não possui parentalConsentId
+ *     → retorna null (a rota interpreta como 404 genérico, não vazando
+ *     existência do jogador menor sem consentimento).
+ *   - Se menor COM consentimento → mascara dateOfBirth, expõe perfil.
+ *   - Se maior de 18 → retorna tudo normalmente.
  */
 export async function getPlayerBySlug(slug: string) {
   const player = await db.player.findUnique({
@@ -271,9 +308,10 @@ export async function getPlayerBySlug(slug: string) {
     include: {
       socialLinks: true,
       contracts: {
-        where: { endDate: null }, // Público só vê o contrato ativo
+        where: { endDate: null },
         include: {
           team: { select: { id: true, name: true, slug: true, logoUrl: true } },
+          split: { select: { id: true, name: true } },
         },
       },
       splitStats: { include: { split: { select: { id: true, name: true } } } },
@@ -282,12 +320,15 @@ export async function getPlayerBySlug(slug: string) {
 
   if (!player) return null;
 
-  // LGPD: Mascaramento para menores
+  // LGPD Art. 8º: Menores sem consentimento parental não aparecem publicamente
   if (isMinor(player.dateOfBirth)) {
-    // Se precisássemos de consentimento específico, checaríamos player.parentalConsentId aqui
-    // Por enquanto, mascaramos a data de nascimento bruta por segurança
+    if (!player.parentalConsentId) {
+      return null; // 404 genérico na rota — não vaza existência
+    }
+
+    // Menor COM consentimento: mascara dateOfBirth, expõe perfil
     const { dateOfBirth, ...safePlayer } = player;
-    return { ...safePlayer, ageGroup: "SUB_18" };
+    return { ...safePlayer, ageGroup: "SUB_18" as const };
   }
 
   return player;
@@ -295,8 +336,8 @@ export async function getPlayerBySlug(slug: string) {
 
 export interface ListPlayersQuery {
   status?: PlayerStatus;
-  position?: Position; // Corrigido para o Enum importado
-  teamId?: string; // Busca jogadores com contrato ativo neste time
+  position?: Position;
+  teamId?: string;
   take: number;
   cursor?: string;
 }
@@ -323,6 +364,7 @@ export async function listPlayers(query: ListPlayersQuery) {
         where: { endDate: null },
         select: {
           team: { select: { name: true, slug: true, logoUrl: true } },
+          split: { select: { id: true, name: true } },
           jerseyNumber: true,
         },
       },
@@ -351,10 +393,11 @@ export async function deletePlayer(
     include: {
       _count: {
         select: {
+          contracts: true,
           matchStats: true,
           draftPicks: true,
           awards: true,
-          matchEvents: true, // Eventos onde o jogador é o ator principal
+          matchEvents: true,
         },
       },
     },
@@ -364,11 +407,15 @@ export async function deletePlayer(
 
   const counts = current._count;
   const totalDependents =
-    counts.matchStats + counts.draftPicks + counts.awards + counts.matchEvents;
+    counts.contracts +
+    counts.matchStats +
+    counts.draftPicks +
+    counts.awards +
+    counts.matchEvents;
 
   if (totalDependents > 0) {
     throw new LeagueConflictError(
-      `O jogador possui histórico ativo (${totalDependents} registro(s) entre estatísticas, lances, prêmios ou draft). Para preservar a integridade histórica, aposente o jogador ou anonimize a conta (LGPD) em vez de deletar.`,
+      `O jogador possui ${totalDependents} registro(s) vinculado(s) (contratos, estatísticas, lances, prêmios ou draft). Para preservar a integridade histórica, aposente o jogador ou anonimize a conta (LGPD) em vez de deletar.`,
       "PLAYER_HAS_HISTORY",
     );
   }

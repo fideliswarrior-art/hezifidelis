@@ -504,8 +504,8 @@ model Notification {
 
 // Season representa uma temporada completa (ex: "2025/26").
 // Uma Season pode ter múltiplos Splits (etapas), como "Split 1", "Playoffs", etc.
-// REGRA: apenas uma Season pode ter isActive = true por vez. O backend deve usar
-// uma transaction para desativar as demais ao ativar uma nova.
+// REGRA: múltiplas Seasons podem coexistir com isActive = true (torneios
+// comunitários em paralelo). isActive é flag administrativa sem exclusividade.
 model Season {
   id          String    @id @default(uuid())
   name        String // Ex: "Temporada 2025/26"
@@ -536,7 +536,8 @@ model Season {
 // Split é cada etapa ou sub-competição dentro de uma Season.
 // Ex: "Split 1 — Fase Regular", "Copa de Inverno", "Playoffs Finais".
 // defaultFormat indica a modalidade principal deste split.
-// REGRA: apenas um Split pode ter isActive = true dentro de uma Season por vez.
+// REGRA: múltiplos Splits podem coexistir com isActive = true, inclusive
+// dentro da mesma Season (ex: "Fase Masculina" + "Fase Feminina" em paralelo).
 model Split {
   id            String     @id @default(uuid())
   name          String // Ex: "Split 1", "Copa Abril 2025"
@@ -560,6 +561,7 @@ model Split {
   campaigns          CharityCampaign[] // [J] Campanhas vinculadas a este split
   albums             EventAlbum[] // [P] Álbuns de fotos deste split
   awards             SeasonAward[] // [L] Prêmios de split
+  contracts          PlayerContract[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -762,24 +764,33 @@ model PlayerSocialLink {
   @@unique([playerId, platform])
 }
 
-// Contrato do jogador com um time. Permite histórico completo de transferências.
-// REGRA: contrato ativo é aquele com endDate IS NULL.
-// NUNCA use booleano isCurrent — é armadilha de condição de corrida.
-// Ao criar um novo contrato, sempre feche o anterior: endDate = now().
+// Contrato (inscrição) do jogador em um time para um Split específico.
+// REGRA: contrato ativo = endDate IS NULL. Invariante: no máximo 1 ativo por
+// (playerId, splitId). Jogador pode ter contratos ativos em Splits diferentes
+// simultaneamente (times diferentes em torneios paralelos).
+// contractCode é gerado server-side, nunca vem do client.
 model PlayerContract {
   id           String    @id @default(uuid())
+  contractCode String    @unique // ★ NOVO — Código legível (ex: CON-GWARL10-CAB26-2604384729)
   playerId     String
   player       Player    @relation(fields: [playerId], references: [id])
   teamId       String
   team         Team      @relation(fields: [teamId], references: [id])
-  jerseyNumber Int // Número da camisa
+  splitId      String // ★ NOVO — Escopo do torneio
+  split        Split     @relation(fields: [splitId], references: [id])
+  jerseyNumber Int
   startDate    DateTime
-  endDate      DateTime? // null = contrato vigente
+  endDate      DateTime?
+  // null = contrato vigente
   transferFee  Decimal?  @db.Decimal(10, 2)
-  notes        String? // Observações sobre a transferência
+  notes        String?
+  // Observações sobre a transferência
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  // ★ NOVO — índice para a invariante: no máximo 1 contrato ativo por jogador por split
+  @@index([playerId, splitId, endDate])
 }
 
 // Snapshot do elenco de um time no início de cada split.
@@ -998,6 +1009,9 @@ model Match {
   title        String? // Ex: "Final do Split 1 — FCX vs YNG"
   scheduledFor DateTime
   status       MatchStatus @default(SCHEDULED)
+
+  startedAt  DateTime? // ★ NOVO — Preenchido no startMatch
+  finishedAt DateTime? // ★ NOVO — Preenchido no finishMatch
 
   // [A] Modalidade e caráter da partida
   format     GameFormat @default(FIVE_ON_FIVE) // 1x1, 2x2, 3x3, 5x5
