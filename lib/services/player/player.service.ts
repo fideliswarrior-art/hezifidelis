@@ -33,6 +33,11 @@ import type {
   UpdatePlayerStatusInput,
 } from "@/lib/security/utils/validations.roster";
 import { validateTransition } from "@/lib/security/guards/require-status-transition";
+import {
+  generatePlayerCode,
+  hashForAudit,
+  generateTicketQrImage,
+} from "@/lib/security/crypto/qrcode";
 
 // ============================================================================
 // HELPERS INTERNOS
@@ -432,4 +437,59 @@ export async function deletePlayer(
     after: null,
     ip: actor.ip ?? null,
   });
+}
+
+// ============================================================================
+// 6. GERAR QR CODE DE CHECK-IN (E3.5)
+// ============================================================================
+
+/**
+ * Gera (ou regenera) o QR Code permanente de check-in do jogador.
+ *
+ * Apenas ADMIN+ pode executar. Regenerar sobrescreve o QR anterior
+ * (o antigo para de funcionar imediatamente).
+ *
+ * Retorna a imagem Data URL para exibição/impressão no painel admin.
+ */
+export async function generatePlayerQrCode(
+  playerId: string,
+  actor: ActorContext,
+): Promise<{ qrImage: string; generatedAt: Date }> {
+  const player = await db.player.findUnique({
+    where: { id: playerId },
+    select: { id: true, firstName: true, lastName: true, checkInQrCode: true },
+  });
+
+  if (!player) throw new NotFoundError("Jogador não encontrado.");
+
+  const { code, auditHash } = generatePlayerCode();
+  const now = new Date();
+
+  await db.player.update({
+    where: { id: playerId },
+    data: {
+      checkInQrCode: code,
+      checkInQrGeneratedAt: now,
+    },
+  });
+
+  await createAuditLog({
+    userId: actor.userId,
+    action: AUDIT_EVENTS.PLAYER_QR_GENERATE,
+    entity: "Player",
+    entityId: playerId,
+    before: player.checkInQrCode
+      ? { qrCodeHash: hashForAudit(player.checkInQrCode) }
+      : null,
+    after: { qrCodeHash: auditHash },
+    ip: actor.ip ?? null,
+    metadata: {
+      isRegeneration: !!player.checkInQrCode,
+      playerName: `${player.firstName} ${player.lastName}`,
+    },
+  });
+
+  const qrImage = await generateTicketQrImage(code);
+
+  return { qrImage, generatedAt: now };
 }

@@ -195,6 +195,11 @@ enum TeamSide {
   AWAY // Time visitante
 }
 
+enum CheckInMethod {
+  QR_SCAN
+  MANUAL_ADMIN
+}
+
 // ---------------------------------------------------------------------------
 // 1.5 MVP e Inscrições
 // ---------------------------------------------------------------------------
@@ -423,18 +428,19 @@ model User {
   player Player? // Relação 1:1 com o perfil de jogador
 
   // --- Relações ---
-  orders         Order[]
-  articles       Article[]
-  comments       Comment[]
-  articleLikes   ArticleLike[]
-  tickets        Ticket[]
-  notifications  Notification[]
-  donations      Donation[] // Doações registradas por este usuário
-  wishlistItems  WishlistItem[] // [N] Lista de desejos na loja
-  productReviews ProductReview[] // [O] Avaliações de produtos
-  matchOfficials MatchOfficial[] // [D] Partidas onde este user foi árbitro/mesário
-  auditLogs      AuditLog[] // [Q] Ações administrativas deste usuário
-  consents       Consent[] // [LGPD] Consentimentos concedidos pelo usuário
+  orders            Order[]
+  articles          Article[]
+  comments          Comment[]
+  articleLikes      ArticleLike[]
+  tickets           Ticket[]
+  notifications     Notification[]
+  donations         Donation[] // Doações registradas por este usuário
+  wishlistItems     WishlistItem[] // [N] Lista de desejos na loja
+  productReviews    ProductReview[] // [O] Avaliações de produtos
+  matchOfficials    MatchOfficial[] // [D] Partidas onde este user foi árbitro/mesário
+  auditLogs         AuditLog[] // [Q] Ações administrativas deste usuário
+  consents          Consent[] // [LGPD] Consentimentos concedidos pelo usuário
+  performedCheckIns PlayerCheckIn[] @relation("PerformedCheckIns")
 
   // Relações nomeadas para MatchEvent (múltiplos FKs para User)
   recordedEvents MatchEvent[] @relation("EventRecorder") // [E] Eventos lançados como mesário
@@ -562,6 +568,7 @@ model Split {
   albums             EventAlbum[] // [P] Álbuns de fotos deste split
   awards             SeasonAward[] // [L] Prêmios de split
   contracts          PlayerContract[]
+  checkIns           PlayerCheckIn[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -710,26 +717,30 @@ model TeamGroup {
 // rankingPoints e worldRanking são calculados via job agendado — não editar manualmente.
 // slug é usado para URLs: /jogadores/joao-silva
 model Player {
-  id            String       @id @default(uuid())
-  firstName     String
-  lastName      String
-  nickname      String?
-  slug          String       @unique
-  photoUrl      String?
-  nationality   String?      @default("Brasileiro")
-  dateOfBirth   DateTime?
-  position      Position
-  heightCm      Int?
-  weightKg      Int?
-  bio           String?      @db.Text
-  status        PlayerStatus @default(ACTIVE)
+  id          String       @id @default(uuid())
+  firstName   String
+  lastName    String
+  nickname    String?
+  slug        String       @unique
+  photoUrl    String?
+  nationality String?      @default("Brasileiro")
+  dateOfBirth DateTime?
+  position    Position
+  heightCm    Int?
+  weightKg    Int?
+  bio         String?      @db.Text
+  status      PlayerStatus @default(ACTIVE)
+
   // Ranking individual — calculado via job agendado
-  rankingPoints Float        @default(0)
+  rankingPoints Float @default(0)
   worldRanking  Int?
 
   // Vínculo opcional com a conta de usuário (necessário para auto check-in e painel do jogador)
   userId String? @unique
   user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  checkInQrCode        String?   @unique // "HEZI-PLAYER-{uuid}" — gerado server-side
+  checkInQrGeneratedAt DateTime?
 
   // --- Relações ---
   socialLinks      PlayerSocialLink[]
@@ -745,12 +756,35 @@ model Player {
   mvps             MatchMvp[] // [C] Partidas onde este jogador foi MVP
   matchEvents      MatchEvent[] // [E] Eventos de jogo onde este player é o ator
   awards           SeasonAward[] // [L] Prêmios individuais recebidos
+  checkIns         PlayerCheckIn[]
 
   parentalConsentId String?  @unique // [LGPD] Consentimento dos responsáveis (jogadores <18)
   parentalConsent   Consent? @relation(fields: [parentalConsentId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model PlayerCheckIn {
+  id            String        @id @default(cuid())
+  playerId      String
+  player        Player        @relation(fields: [playerId], references: [id])
+  matchId       String?
+  match         Match?        @relation(fields: [matchId], references: [id])
+  splitId       String?
+  split         Split?        @relation(fields: [splitId], references: [id])
+  checkedInAt   DateTime      @default(now())
+  checkedInById String
+  checkedInBy   User          @relation("PerformedCheckIns", fields: [checkedInById], references: [id])
+  ip            String?
+  method        CheckInMethod
+  notes         String?
+
+  @@unique([playerId, matchId])
+  @@unique([playerId, splitId])
+  @@index([matchId])
+  @@index([splitId])
+  @@index([checkedInAt])
 }
 
 // Redes sociais do jogador. Mesma estrutura de TeamSocialLink.
@@ -1056,6 +1090,7 @@ model Match {
   registrations EventRegistration[] // [F] Inscrições para esta partida específica
   campaigns     CharityCampaign[] // [J] Campanhas beneficentes vinculadas a esta partida
   albums        EventAlbum[] // [P] Álbuns de fotos desta partida
+  checkIns      PlayerCheckIn[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

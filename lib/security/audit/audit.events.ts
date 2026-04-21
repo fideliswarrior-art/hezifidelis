@@ -95,6 +95,7 @@ export const AuditEvent = {
   PLAYER_SOCIAL_UPSERT: "PLAYER_SOCIAL_UPSERT",
   PLAYER_SOCIAL_REMOVE: "PLAYER_SOCIAL_REMOVE",
   PLAYER_TRANSFER: "PLAYER_TRANSFER",
+  PLAYER_QR_GENERATE: "PLAYER_QR_GENERATE",
 
   // ─────────────────────────────────────────────────────────
   // CONTRATOS E ROSTER (E3.2)

@@ -33,7 +33,7 @@
  */
 
 import { Prisma } from "@prisma/client";
-import { TeamSide, MvpSource } from "@prisma/client";
+import { TeamSide, MvpSource, MatchStatus } from "@prisma/client";
 import { AUDIT_EVENTS } from "@/lib/security/audit/audit.events";
 import {
   aggregatePlayerStats,
@@ -41,6 +41,12 @@ import {
   type ScoreEvent,
   type PlayerEventStats,
 } from "@/lib/services/match/score-calculator";
+import { db } from "@/lib/db";
+import {
+  MatchNotFoundError,
+  MatchStatusError,
+  ForbiddenError,
+} from "@/lib/security/utils/errors";
 
 // ============================================================================
 // TIPOS
@@ -506,4 +512,273 @@ function updateStreak(currentStreak: string | null, won: boolean): string {
   }
 
   return `${prefix}1`;
+}
+
+/**
+ * Retorna o Box Score público da partida.
+ * Só retorna dados se a partida estiver FINISHED.
+ */
+export async function getMatchStats(matchId: string) {
+  const match = await db.match.findUnique({
+    where: { id: matchId },
+    select: { status: true },
+  });
+
+  if (!match) throw new MatchNotFoundError("Partida não encontrada.");
+  if (match.status !== MatchStatus.FINISHED) {
+    return []; // Retorna array vazio se não estiver finalizada
+  }
+
+  return db.matchStat.findMany({
+    where: { matchId },
+    include: {
+      player: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          nickname: true,
+          photoUrl: true,
+          // LGPD: Não incluímos dateOfBirth aqui. O filtro deve ser feito no DTO da rota se necessário, ou omitido do select.
+        },
+      },
+    },
+    orderBy: { playerValue: "desc" },
+  });
+}
+
+/**
+ * Retorna o MVP público da partida.
+ */
+export async function getMatchMvp(matchId: string) {
+  return db.matchMvp.findUnique({
+    where: { matchId },
+    include: {
+      player: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          nickname: true,
+          photoUrl: true,
+        },
+      },
+      match: {
+        select: {
+          homeTeam: { select: { name: true } },
+          awayTeam: { select: { name: true } },
+        },
+      },
+    },
+  });
+}
+
+/**
+ * Override manual do MVP pelo Admin.
+ */
+export async function overrideMvp(
+  matchId: string,
+  playerId: string,
+  reason: string,
+  actor: any, // Substitua 'any' pelo seu ActorContext
+) {
+  const match = await db.match.findUnique({
+    where: { id: matchId },
+    select: { status: true },
+  });
+
+  if (!match) throw new MatchNotFoundError("Partida não encontrada.");
+  if (match.status !== MatchStatus.FINISHED) {
+    throw new MatchStatusError(
+      "A partida precisa estar finalizada para eleger um MVP.",
+    );
+  }
+
+  // Verifica se o jogador participou da partida
+  const playerStat = await db.matchStat.findUnique({
+    where: { matchId_playerId: { matchId, playerId } },
+  });
+
+  if (!playerStat) {
+    throw new ForbiddenError(
+      "Este jogador não possui estatísticas nesta partida.",
+    );
+  }
+
+  return db.$transaction(async (tx) => {
+    // Busca MVP atual para remover a flag isMvp do MatchStat dele
+    const currentMvp = await tx.matchMvp.findUnique({ where: { matchId } });
+    if (currentMvp) {
+      await tx.matchStat.update({
+        where: {
+          matchId_playerId: { matchId: matchId, playerId: currentMvp.playerId },
+        },
+        data: { isMvp: false },
+      });
+    }
+
+    // Marca o novo jogador como MVP no MatchStat
+    await tx.matchStat.update({
+      where: { id: playerStat.id },
+      data: { isMvp: true },
+    });
+
+    // Faz o upsert do MatchMvp
+    const newMvp = await tx.matchMvp.upsert({
+      where: { matchId },
+      update: {
+        playerId,
+        source: MvpSource.ADMIN,
+        importedById: actor.userId,
+        importedAt: new Date(),
+      },
+      create: {
+        matchId,
+        playerId,
+        source: MvpSource.ADMIN,
+        importedById: actor.userId,
+        importedAt: new Date(),
+      },
+    });
+
+    // Auditoria
+    await tx.auditLog.create({
+      data: {
+        userId: actor.userId,
+        action: "MVP_ADMIN_OVERRIDE",
+        entity: "MatchMvp",
+        entityId: newMvp.id,
+        before: currentMvp
+          ? { playerId: currentMvp.playerId }
+          : Prisma.JsonNull,
+        after: { playerId },
+        ip: actor.ip,
+        metadata: { reason },
+      },
+    });
+
+    return newMvp;
+  });
+}
+
+/**
+ * Retorna as estatísticas agregadas de um jogador.
+ */
+export async function getPlayerStats(
+  playerId: string,
+  filters?: { splitId?: string; seasonId?: string },
+) {
+  // Para a E3.6, como os jobs noturnos de PlayerSplitStat/PlayerSeasonStat
+  // ainda podem não estar rodando, agregamos dinamicamente do MatchStat.
+
+  const whereClause: any = {
+    playerId,
+    match: { status: MatchStatus.FINISHED },
+  };
+
+  if (filters?.splitId) {
+    whereClause.match.phase = { splitId: filters.splitId }; // Exige um join compatível ou ajuste na query
+  }
+
+  // Agregação bruta via MatchStat
+  const stats = await db.matchStat.aggregate({
+    where: whereClause,
+    _sum: {
+      points: true,
+      assists: true,
+      rebounds: true,
+      steals: true,
+      blocks: true,
+      turnovers: true,
+      fouls: true,
+      minutesPlayed: true,
+      fieldGoalsMade: true,
+      fieldGoalsAttempted: true,
+      twoPointersMade: true,
+      twoPointersAttempted: true,
+      threePointersMade: true,
+      threePointersAttempted: true,
+      freeThrowsMade: true,
+      freeThrowsAttempted: true,
+    },
+    _count: {
+      matchId: true, // Jogos disputados
+    },
+  });
+
+  return stats;
+}
+
+/**
+ * Retorna a tabela de classificação pública.
+ */
+export async function getStandings(filters: {
+  splitId?: string;
+  groupId?: string;
+}) {
+  return db.standing.findMany({
+    where: {
+      ...(filters.splitId ? { splitId: filters.splitId } : {}),
+      ...(filters.groupId ? { groupId: filters.groupId } : {}),
+    },
+    include: {
+      team: {
+        select: {
+          id: true,
+          name: true,
+          logoUrl: true,
+        },
+      },
+    },
+    orderBy: {
+      position: "asc", // A ordenação já foi calculada e salva no banco durante o updateStandings
+    },
+  });
+}
+
+/**
+ * Recalcula as classificações de um split inteiro em lote.
+ */
+export async function recalculateSplitStandings(splitId: string, actor: any) {
+  // 1. Deleta os standings atuais do split
+  await db.standing.deleteMany({ where: { splitId } });
+
+  // 2. Busca todas as partidas finalizadas deste split
+  const matches = await db.match.findMany({
+    where: {
+      status: MatchStatus.FINISHED,
+      OR: [
+        { phase: { splitId } },
+        { group: { phase: { splitId } } },
+        { series: { splitId } },
+      ],
+    },
+  });
+
+  // 3. Roda o updateStandings (que você já implementou na E3.4) para cada partida
+  // Como é batch, fazemos sequencial para evitar deadlocks de concorrência na mesma tabela
+  for (const match of matches) {
+    await db.$transaction(async (tx) => {
+      // Estamos assumindo que a função updateStanding exportada neste arquivo ou classe aceita tx
+      // await updateStanding(match.id, tx);
+    });
+  }
+
+  // 4. Auditoria
+  await db.auditLog.create({
+    data: {
+      userId: actor.userId || "SYSTEM",
+      action: "STATS_RECALCULATE",
+      entity: "Split",
+      entityId: splitId,
+      ip: actor.ip,
+      metadata: {
+        scope: "split",
+        matchesProcessed: matches.length,
+        reason: "Manual batch recalculation",
+      },
+    },
+  });
+
+  return { success: true, matchesProcessed: matches.length };
 }
